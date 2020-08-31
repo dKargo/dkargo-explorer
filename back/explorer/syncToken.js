@@ -182,8 +182,7 @@ let createEventParseTable = async function() {
         return (ret.length > 0)? (ret) : (null);
     } catch(error) {
         Log('ERROR', `${colors.red(error)}`);
-        usage();
-        process.exit(1);
+        return null;
     }
 }
 
@@ -325,7 +324,6 @@ let parseTransaction = async function(table, txdata, receipt, timestamp) {
         }
     } catch(error) {
         Log('ERROR', `${colors.red(error)}`);
-        usage();
     }
 }
 
@@ -338,8 +336,6 @@ let parseTransaction = async function(table, txdata, receipt, timestamp) {
 let syncPastBlocks = async function(startblock, table) {
     try {
         let curblock = startblock;
-        console.log(`latestblock : ${await web3.eth.getBlockNumber()}`)
-        console.log(`curblock : ${curblock}`)
         while(await web3.eth.getBlockNumber() >= curblock) {
             let data = await web3.eth.getBlock(curblock, true);
             if(await Block.countDocuments({nettype: 'token'}) == 0) {
@@ -360,7 +356,7 @@ let syncPastBlocks = async function(startblock, table) {
             }
             curblock++;
         }
-        console.log('done');
+        Log('INFO', `START BLOCK:[${curblock}]`);
     } catch(error) {
         Log('ERROR', `${colors.red(error)}`);
     }
@@ -380,8 +376,11 @@ let RunProc = async function() {
         if(startblock == 0) {
             throw new Error(`Need to reset DB! Exit!`);
         }
-        Log('DEBUG', colors.gray(`Start Monitoring from BlockNumber:[${startblock}]`));
+        Log('DEBUG', colors.gray(`Start Monitoring from BlockNumber:[${startblock}]......`));
         let table = await createEventParseTable();
+        if (table == null) {
+            throw new Error("\"EVENT TABLE\" create Failed!");
+        }
         await syncPastBlocks(startblock, table);
         /**
          * @notice 새 블록 구독
