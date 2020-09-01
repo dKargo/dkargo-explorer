@@ -302,9 +302,10 @@ let getAccountInfo = async function(addr, page, type, service, token) {
 let getOrderInfo = async function(orderid, service) {
     try {
         let addr = await ApiService.orders(service, orderid);
-        if(addr == ZEROADDR) {
+        if (addr == ZEROADDR) {
             throw new Error(`Order Not Found! ORDER-ID=[${orderid}]`);
         }
+        addr = addr.toLowerCase();
         let resp = new Object(); // 결과값을 담을 오브젝트
         resp.orderAddr = addr; // 주문 컨트랙트 주소
         resp.orderId = await ApiOrder.orderid(addr); // 주문번호
