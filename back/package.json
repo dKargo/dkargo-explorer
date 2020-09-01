@@ -11,10 +11,14 @@
     "tokenstart": "13311"
   },
   "scripts": {
-    "explorer": "node explorer/server.js $npm_package_config_expport $npm_package_config_service $npm_package_config_token",
-    "sync-logistics": "node explorer/syncLogistics.js $npm_package_config_service $npm_package_config_servicestart",
-    "sync-token": "node explorer/syncToken.js $npm_package_config_token $npm_package_config_tokenstart",
-    "start": "npx concurrently \"npm run explorer\" \"npm run sync-logistics\" \"npm run sync-token\"",
+    "start-exp": "node explorer/server.js $npm_package_config_expport $npm_package_config_service $npm_package_config_token",
+    "start-syncL": "node explorer/syncLogistics.js $npm_package_config_service $npm_package_config_servicestart",
+    "start-syncT": "node explorer/syncToken.js $npm_package_config_token $npm_package_config_tokenstart",
+    "stop-exp": "pkill -f explorer/server.js",
+    "stop-syncL": "pkill -f explorer/syncLogistics.js",
+    "stop-syncT": "pkill -f explorer/syncToken.js",
+    "start": "npx concurrently \"npm run start-exp\" \"npm run start-syncL\" \"npm run start-syncT\"",
+    "stop": "npx concurrently \"npm run stop-exp\" \"npm run stop-syncL\" \"npm run stop-syncT\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
