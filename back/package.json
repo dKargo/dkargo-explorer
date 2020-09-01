@@ -3,7 +3,18 @@
   "version": "1.0.0",
   "description": "dkargo explorer backend",
   "main": "index.js",
+  "config": {
+    "expport": "10002",
+    "service": "0x75Bcc537fe91bfEdacFf68ab4bFF4924CcF24AAf",
+    "servicestart": "13401",
+    "token": "0x542f7eF0095DFB4CcCEe096528c5598141b1bfeF",
+    "tokenstart": "13311"
+  },
   "scripts": {
+    "explorer": "node explorer/server.js $npm_package_config_expport $npm_package_config_service $npm_package_config_token",
+    "sync-logistics": "node explorer/syncLogistics.js $npm_package_config_service $npm_package_config_servicestart",
+    "sync-token": "node explorer/syncToken.js $npm_package_config_token $npm_package_config_tokenstart",
+    "start": "npx concurrently \"npm run explorer\" \"npm run sync-logistics\" \"npm run sync-token\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -17,6 +28,7 @@
   "dependencies": {
     "axios": "^0.19.2",
     "callsites": "^3.1.0",
+    "concurrently": "^5.3.0",
     "dotenv": "^8.2.0",
     "ethereumjs-common": "^1.5.1",
     "ethereumjs-tx": "^2.1.2",

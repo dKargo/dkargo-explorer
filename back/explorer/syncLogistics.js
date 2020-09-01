@@ -270,7 +270,7 @@ let procTxDeploy = async function(prefix, receipt, item) {
             break;
         }
         default:
-            throw new Error(`Unsupported Prefix [${prefix}]`);
+            return;
         }
         item.deployedType = prefix; // DEPLOYED 컨트랙트 타입: service, company, order 중 하나
         item.creator = receipt.from; // 트랜젝션 생성자 주소 (deploy를 수행한 EOA == receipt.from)
