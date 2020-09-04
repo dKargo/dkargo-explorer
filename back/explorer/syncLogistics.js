@@ -460,7 +460,6 @@ let parseTransaction = async function(table, txdata, receipt, timestamp) {
                     await procTxDeploy(prefix, receipt, item);
                 } else {
                     item.to = txdata.to.toLowerCase();
-                    console.log(item.to)
                     switch(prefix) {
                     case 'service': // 트랜젝션: 서비스 컨트랙트 관련
                         await procTxService(table, txdata, receipt, item);
