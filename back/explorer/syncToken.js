@@ -231,7 +231,7 @@ let procTxDeploy = async function(prefix, receipt, item) {
             item.tokenAddr = receipt.contractAddress.toLowerCase(); // DEPLOYED: 토큰 컨트랙트 주소
             item.deployedType = prefix; // deploy 컨트랙트 타입: token만 허용
             item.creator = receipt.from; // 트랜젝션 생성자 주소 (deploy를 수행한 EOA == receipt.from)
-            item.txtype = 'deploy';
+            item.txtype = 'DEPLOY';
             await TxToken.collection.insertOne(item);
         }
     } catch(error) {
@@ -258,7 +258,7 @@ let procTxToken = async function(table, txdata, receipt, item) {
             item.origin = ret.from; // 토큰 송신 계좌주소
             item.dest = ret.to; // 토큰 수신 계좌주소
             item.amount = ret.value; // 토큰 전송량
-            item.txtype = 'transfer'; // txtype: transfer
+            item.txtype = 'TRANSFER'; // txtype: transfer
             await TxToken.collection.insertOne(item);
             break;
         }
@@ -266,7 +266,7 @@ let procTxToken = async function(table, txdata, receipt, item) {
             let ret = await getEventArguments('Transfer', table, receipt); // 이벤트 파라메터 획득
             item.origin = ret.from; // 토큰 소각 계좌주소
             item.amount = ret.value; // 토큰 소각량
-            item.txtype = 'burn'; // txtype: burn
+            item.txtype = 'BURN'; // txtype: burn
             await TxToken.collection.insertOne(item);
             break;
         }
@@ -275,7 +275,7 @@ let procTxToken = async function(table, txdata, receipt, item) {
             item.origin = ret.owner; // 토큰 보유 계좌주소
             item.dest = ret.spender; // 토큰 권한위임 계좌주소
             item.amount = ret.value; // 토큰 권한위임량
-            item.txtype = 'approve'; // txtype: approve
+            item.txtype = 'APPROVE'; // txtype: approve
             await TxToken.collection.insertOne(item);
             break;
         }
