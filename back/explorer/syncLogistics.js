@@ -15,7 +15,9 @@ const Log     = require('../libs/libLog.js').Log; // 로그 출력
 //// ABIs
 const abiPrefix  = require('../build/contracts/DkargoPrefix.json').abi; // 컨트랙트 ABI
 const abiERC165  = require('../build/contracts/ERC165.json').abi; // 컨트랙트 ABI
-const abiService = require('../build/contracts/DkargoService.json').abi; // Service Contract ABI
+const abiService = require('../build/contracts/DkargoService.json').abi; // 서비스 컨트랙트 ABI
+const abiCompany = require('../build/contracts/DkargoCompany.json').abi; // 물류사 컨트랙트 ABI
+const abiOrder   = require('../build/contracts/DkargoOrder.json').abi; // 주문 컨트랙트 ABI
 
 //// DBs
 require('./db.js'); // for mongoose schema import
@@ -27,7 +29,7 @@ const OrderTrack  = mongoose.model('ExpOrderTrack'); // module.exports
 //// APIs & LIBs
 const ApiCompany = require('../libs/libDkargoCompany.js'); // 물류사 컨트랙트 관련 Library
 const ApiOrder   = require('../libs/libDkargoOrder.js'); // 주문 컨트랙트 관련 Library
-const ZEROADDR   = require('../libs/libCommon.js').ZEROADDR; // ZERO-ADDRESS 상수
+const hex2a      = require('../libs/libCommon.js').hex2a; // HEXA-STRING을 ASCII로 변환해주는 함수
 
 /**
  * @notice 사용법 출력함수이다.
@@ -189,6 +191,36 @@ let createEventParseTable = async function() {
                 ret.push(obj);
             }
         }
+        for(let i = 0; i < abiCompany.length; i++) {
+            if(abiCompany[i].type == 'event') {
+                let proto = `${abiCompany[i].name}(`; // 이벤트 시그니처를 계산하기 위한 이벤트 프로토타입
+                for(let j = 0; j < abiCompany[i].inputs.length; j++) {
+                    proto += (j == 0)? (`${abiCompany[i].inputs[j].type}`) : (`,${abiCompany[i].inputs[j].type}`);
+                }
+                proto += `)`;
+                let sigret = await web3.eth.abi.encodeEventSignature(proto); // 이벤트 프로토타입에서 이벤트 시그니처를 추출한다.
+                let obj = new Object();
+                obj.name = abiCompany[i].name; // 이벤트 이름
+                obj.inputs = abiCompany[i].inputs; // 이벤트 input 파라메터, 이벤트 파싱 시 호출되는 decodeLog의 파라메터로 필요한 값
+                obj.signature = sigret; // 이벤트 시그니처, receipt의 logs.topics에 담겨오는 이벤트 식별자이다.
+                ret.push(obj);
+            }
+        }
+        for(let i = 0; i < abiOrder.length; i++) {
+            if(abiOrder[i].type == 'event') {
+                let proto = `${abiOrder[i].name}(`; // 이벤트 시그니처를 계산하기 위한 이벤트 프로토타입
+                for(let j = 0; j < abiOrder[i].inputs.length; j++) {
+                    proto += (j == 0)? (`${abiOrder[i].inputs[j].type}`) : (`,${abiOrder[i].inputs[j].type}`);
+                }
+                proto += `)`;
+                let sigret = await web3.eth.abi.encodeEventSignature(proto); // 이벤트 프로토타입에서 이벤트 시그니처를 추출한다.
+                let obj = new Object();
+                obj.name = abiOrder[i].name; // 이벤트 이름
+                obj.inputs = abiOrder[i].inputs; // 이벤트 input 파라메터, 이벤트 파싱 시 호출되는 decodeLog의 파라메터로 필요한 값
+                obj.signature = sigret; // 이벤트 시그니처, receipt의 logs.topics에 담겨오는 이벤트 식별자이다.
+                ret.push(obj);
+            }
+        }
         return (ret.length > 0)? (ret) : (null);
     } catch(error) {
         Log('ERROR', `${colors.red(error)}`);
@@ -205,19 +237,14 @@ let createEventParseTable = async function() {
  */
 let getEventArguments = async function(eventname, table, receipt) {
     try {
-        let elmt = undefined;
         for(let i = 0; i < table.length; i++) {
             if(table[i].name == eventname) {
-                elmt = table[i]; // eventname에 해당하는 table elmt 획득
-                break;
-            }
-        }
-        if(elmt != undefined) { // 매칭되는 table elmt가 존재할 경우
-            for(let i = 0; i < receipt.logs.length; i++) {
-                if(receipt.logs[i].topics[0] == elmt.signature) { // eventname에 해당하는 event log가 있다면
-                    let data = receipt.logs[i].data; // receipt에서 data 추출
-                    let topics = receipt.logs[i].topics.slice(1); // receipt에서 topics 추출
-                    return await web3.eth.abi.decodeLog(elmt.inputs, data, topics); // 아규먼트 정보 획득
+                for(let j = 0; j < receipt.logs.length; j++) {
+                    if(receipt.logs[j].topics[0] == table[i].signature) { // eventname에 해당하는 event log가 있다면
+                        let data = receipt.logs[j].data; // receipt에서 data 추출
+                        let topics = receipt.logs[j].topics.slice(1); // receipt에서 topics 추출
+                        return await web3.eth.abi.decodeLog(table[i].inputs, data, topics); // 아규먼트 정보 획득
+                    }
                 }
             }
         }
@@ -274,7 +301,7 @@ let procTxDeploy = async function(prefix, receipt, item) {
         }
         item.deployedType = prefix; // DEPLOYED 컨트랙트 타입: service, company, order 중 하나
         item.creator = receipt.from; // 트랜젝션 생성자 주소 (deploy를 수행한 EOA == receipt.from)
-        item.txtype = 'deploy';
+        item.txtype = 'DEPLOY';
         await TxLogistics.collection.insertOne(item); // 물류 트랜젝션 정보 DB에 저장
     } catch(error) {
         Log('ERROR', `${colors.red(error)}`);
@@ -299,7 +326,7 @@ let procTxService = async function(table, txdata, receipt, item) {
             item.companyName = await ApiCompany.name(ret.company); // 물류사 컨트랙트 주소로 물류사 이름 획득
             item.companyAddr = ret.company; // 물류사 컨트랙트 주소
             item.creator = txdata.to.toLowerCase(); // 트랜젝션 생성자 주소 (서비스 컨트랙트)
-            item.txtype = 'register';
+            item.txtype = 'REGISTER';
             await TxLogistics.collection.insertOne(item);
             break;
         }
@@ -308,7 +335,7 @@ let procTxService = async function(table, txdata, receipt, item) {
             item.companyName = await ApiCompany.name(ret.company); // 물류사 컨트랙트 주소로 물류사 이름 획득
             item.companyAddr = ret.company; // 물류사 컨트랙트 주소
             item.creator = txdata.to.toLowerCase(); // 트랜젝션 생성자 주소 (서비스 컨트랙트)
-            item.txtype = 'unregister';
+            item.txtype = 'UNREGISTER';
             await TxLogistics.collection.insertOne(item);
             break;
         }
@@ -316,12 +343,12 @@ let procTxService = async function(table, txdata, receipt, item) {
             item.orderAddr = `0x${txdata.input.substring(34, 74)}`; // inputs에서 주문 컨트랙트 주소 추출
             item.orderId = await ApiOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
             item.creator = txdata.to.toLowerCase(); // 트랜젝션 생성자 주소 (서비스 컨트랙트)
-            item.txtype = 'paycheck';
+            item.txtype = 'PAYMENT-CONFIRM';
             await TxLogistics.collection.insertOne(item);
             break;
         }
         case '0x6a256b29': { // "settle(address)"
-            item.txtype = 'settle';
+            item.txtype = 'SETTLEMENT';
             break;
         }
         default:
@@ -351,8 +378,8 @@ let procTxCompany = async function(table, txdata, receipt, item) {
             item.companyAddr = txdata.to.toLowerCase(); // 물류사 컨트랙트 주소
             item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
             item.transportId = `0x${txdata.input.substring(74, 138)}`; // inputs에서 운송번호 추출
-            item.creator = txdata.to.toLowerCase(); // 트랜젝션 생성자 주소 (물류사 컨트랙트)
-            item.txtype = 'launch';
+            item.creator = txdata.to.toLowerCase(); // 물류TX 생성주체 (물류사 컨트랙트)
+            item.txtype = 'ORDER-LAUNCH';
             await TxLogistics.collection.insertOne(item);
             break;
         }
@@ -363,29 +390,62 @@ let procTxCompany = async function(table, txdata, receipt, item) {
             item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
             item.transportId = `0x${txdata.input.substring(74, 138)}`; // inputs에서 운송번호 추출
             item.code = `0x${txdata.input.substring(138, 202)}`; // inputs에서 배송코드 추출
-            item.creator = txdata.to.toLowerCase(); // 트랜젝션 생성자 주소 (물류사 컨트랙트)
-            item.txtype = 'update';
+            item.creator = txdata.to.toLowerCase(); // 물류TX 생성주체 (물류사 컨트랙트)
+            item.txtype = 'ORDER-UPDATE';
             await TxLogistics.collection.insertOne(item);
             break;
         }
         case '0x9870d7fe': { // "addOperator(address)"
+            item.companyAddr = txdata.to.toLowerCase(); // 물류사 컨트랙트 주소
+            item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
+            item.creator = txdata.to.toLowerCase(); // 물류TX 생성주체 (물류사 컨트랙트)
+            let ret = await getEventArguments('OperatorAdded', table, receipt); // 이벤트 파라메터 획득
+            item.param01 = ret.account; // 등록될 운영자 주소
             item.txtype = 'addOperator';
+            await TxLogistics.collection.insertOne(item);
             break;
         }
         case '0xac8a584a': { // "removeOperator(address)"
+            item.companyAddr = txdata.to.toLowerCase(); // 물류사 컨트랙트 주소
+            item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
+            item.creator = txdata.to.toLowerCase(); // 물류TX 생성주체 (물류사 컨트랙트)
+            let ret = await getEventArguments('OperatorRemoved', table, receipt); // 이벤트 파라메터 획득
+            item.param01 = ret.account; // 등록해제될 운영자 주소
             item.txtype = 'removeOperator';
+            await TxLogistics.collection.insertOne(item);
             break;
         }
         case '0xc47f0027': { // "setName(string)"
+            item.companyAddr = txdata.to.toLowerCase(); // 물류사 컨트랙트 주소
+            item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
+            item.creator = txdata.to.toLowerCase(); // 물류TX 생성주체 (물류사 컨트랙트)
+            let ret = await getEventArguments('CompanyNameSet', table, receipt); // 이벤트 파라메터 획득
+            item.param01 = ret.oldName; // 물류사 기존 이름
+            item.param02 = ret.newName; // 물류사 새로운 이름
             item.txtype = 'setName';
+            await TxLogistics.collection.insertOne(item);
             break;
         }
         case '0x252498a2': { // "setUrl(string)"
+            item.companyAddr = txdata.to.toLowerCase(); // 물류사 컨트랙트 주소
+            item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
+            item.creator = txdata.to.toLowerCase(); // 물류TX 생성주체 (물류사 컨트랙트)
+            let ret = await getEventArguments('CompanyUrlSet', table, receipt); // 이벤트 파라메터 획득
+            item.param01 = ret.oldUrl; // 물류사 기존 URL
+            item.param02 = ret.newUrl; // 물류사 새로운 URL
             item.txtype = 'setUrl';
+            await TxLogistics.collection.insertOne(item);
             break;
         }
         case '0x3bbed4a0': { // "setRecipient(address)"
+            item.companyAddr = txdata.to.toLowerCase(); // 물류사 컨트랙트 주소
+            item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
+            item.creator = txdata.to.toLowerCase(); // 물류TX 생성주체 (물류사 컨트랙트)
+            let ret = await getEventArguments('CompanyRecipientSet', table, receipt); // 이벤트 파라메터 획득
+            item.param01 = ret.oldRecipient; // 물류사 기존 수취인주소
+            item.param02 = ret.newRecipient; // 물류사 새로운 수취인주소
             item.txtype = 'setRecipient';
+            await TxLogistics.collection.insertOne(item);
             break;
         }
         default:
@@ -413,12 +473,19 @@ let procTxOrder = async function(table, txdata, receipt, item) {
             item.orderAddr = txdata.to.toLowerCase(); // 물류사 컨트랙트 주소
             item.orderId = await ApiOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
             item.creator = txdata.from; // 트랜젝션 생성자 주소 (화주 주소)
-            item.txtype = 'submit';
+            item.txtype = 'SUBMIT';
             await TxLogistics.collection.insertOne(item);
             break;
         }
         case '0x252498a2': { // "setUrl(string)"
-            item.txtype = 'setUrl';
+            item.orderAddr = txdata.to.toLowerCase(); // 주문 컨트랙트 주소
+            item.orderId = await ApiOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
+            item.creator = txdata.to.toLowerCase(); // 물류TX 생성주체 (주문 컨트랙트)
+            let ret = await getEventArguments('OrderUrlSet', table, receipt); // 이벤트 파라메터 획득
+            item.param01 = ret.oldUrl; // 물류사 기존 URL
+            item.param02 = ret.newUrl; // 물류사 새로운 URL
+            item.txtype = 'setOrderUrl';
+            await TxLogistics.collection.insertOne(item);
             break;
         }
         default:
