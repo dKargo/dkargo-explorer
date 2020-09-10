@@ -19,9 +19,10 @@ const abiToken  = require('../build/contracts/DkargoToken.json').abi; // 컨트�
 
 //// DBs
 require('./db.js'); // for mongoose schema import
-const mongoose = require('mongoose');
-const Block    = mongoose.model('ExpBlock'); // module.exports
-const TxToken  = mongoose.model('ExpTxToken'); // module.exports
+const mongoose  = require('mongoose');
+const Block     = mongoose.model('ExpBlock'); // module.exports
+const TxToken   = mongoose.model('ExpTxToken'); // module.exports
+const EventLogs = mongoose.model('ExpEvtToken'); // module.exports
 
 //// APIs
 const ApiToken = require('../libs/libDkargoToken.js'); // 토큰 컨트랙트 관련 Library
@@ -187,100 +188,122 @@ let createEventParseTable = async function() {
 }
 
 /**
- * @notice 이벤트의 아규먼트 정보를 획득한다.
- * @param {String} eventname 이벤트 이름
- * @param {Object} table EventLog Parsing 테이블
+ * @notice 트랜젝션 안의 모든 이벤트로그들의 정보를 획득한다.
  * @param {Object} receipt getTransactionReceipt 결과물
+ * @param {Object} table EventLog Parsing 테이블
+ * @return 트랜젝션 안의 모든 이벤트로그들의 정보 (배열)
  * @author jhhong
  */
-let getEventArguments = async function(eventname, table, receipt) {
+let getEventLogs = async function(receipt, table) {
     try {
-        let elmt = undefined;
-        for(let i = 0; i < table.length; i++) {
-            if(table[i].name == eventname) {
-                elmt = table[i]; // eventname에 해당하는 table elmt 획득
-                break;
-            }
-        }
-        if(elmt != undefined) { // 매칭되는 table elmt가 존재할 경우
-            for(let i = 0; i < receipt.logs.length; i++) {
-                if(receipt.logs[i].topics[0] == elmt.signature) { // eventname에 해당하는 event log가 있다면
+        let eventLogs = new Array(); // 트랜젝션 안의 모든 이벤트로그들의 정보를 담을 배열
+        for(let i = 0; i < receipt.logs.length; i++) {
+            for(let j = 0; j < table.length; j++) {
+                if(receipt.logs[i].topics[0] == table[j].signature) { // eventname에 해당하는 event log가 있다면
+                    let eventLog = new Object();
+                    eventLog.name =table[j].name;
                     let data = receipt.logs[i].data; // receipt에서 data 추출
                     let topics = receipt.logs[i].topics.slice(1); // receipt에서 topics 추출
-                    return await web3.eth.abi.decodeLog(elmt.inputs, data, topics); // 아규먼트 정보 획득
+                    let ret = await web3.eth.abi.decodeLog(table[j].inputs, data, topics); // 아규먼트 정보 획득
+                    eventLog.ret = ret;
+                    eventLogs.push(eventLog);
+                    let item = new EventLogs(); // Schema Object 생성
+                    item.txHash = receipt.transactionHash;
+                    item.eventName = table[j].name;
+                    item.paramCount = ret.__length__;
+                    switch(ret.__length__) {
+                    case 4:
+                        item.paramData04 = ret[3];
+                        item.paramType04 = table[j].inputs[3].type;
+                        item.paramName04 = table[j].inputs[3].name;
+                    case 3:
+                        item.paramData03 = ret[2];
+                        item.paramType03 = table[j].inputs[2].type;
+                        item.paramName03 = table[j].inputs[2].name;
+                    case 2:
+                        item.paramData02 = ret[1];
+                        item.paramType02 = table[j].inputs[1].type;
+                        item.paramName02 = table[j].inputs[1].name;
+                    case 1:
+                        item.paramData01 = ret[0];
+                        item.paramType01 = table[j].inputs[0].type;
+                        item.paramName01 = table[j].inputs[0].name;
+                    default:
+                        break;
+                    }
+                    await EventLogs.collection.insertOne(item); // 이벤트 로그 DB에 저장
                 }
             }
         }
-        return null;
+        return eventLogs;
     } catch(error) {
         Log('ERROR', `${colors.red(error)}`);
         return null;
-    }
-}
-
-/**
- * @notice deoloy 트랜젝션을 처리하는 프로시져이다.
- * @param {String} prefix 컨트랙트 PREFIX (token)
- * @param {Object} receipt getTransactionReceipt 결과물
- * @param {Object} item mongoose DB에 추가될 item
- * @author jhhong
- */
-let procTxDeploy = async function(prefix, receipt, item) {
-    try {
-        if(await isDkargoContract(receipt.contractAddress) == true && prefix == 'token') {
-            item.tokenAddr = receipt.contractAddress.toLowerCase(); // DEPLOYED: 토큰 컨트랙트 주소
-            item.deployedType = prefix; // deploy 컨트랙트 타입: token만 허용
-            item.creator = receipt.from; // 트랜젝션 생성자 주소 (deploy를 수행한 EOA == receipt.from)
-            item.txtype = 'DEPLOY';
-            await TxToken.collection.insertOne(item);
-        }
-    } catch(error) {
-        Log('ERROR', `${colors.red(error)}`);
     }
 }
 
 /**
  * @notice Token 컨트랙트 관련 트랜젝션을 처리하는 프로시져이다.
  * @dev register / settle / unregister / markOrderPayed
- * @param {Object} table EventLog Parsing 테이블 (이벤트 이름 / inputs / signature 조합)
- * @param {Object} txdata getTransaction 결과물
  * @param {Object} receipt getTransactionReceipt 결과물
- * @param {Object} item mongoose DB에 추가될 item
+ * @param {String} inputs 트랜젝션 INPUT DATA (HEXA-STRING)
+ * @param {Object} eventLogs 트랜젝션의 이벤트 로그 파싱 결과물
+ * @param {Object} item DB에 저장할 트랜젝션 파싱 결과물
  * @author jhhong
  */
-let procTxToken = async function(table, txdata, receipt, item) {
+let procTxToken = async function(receipt, inputs, eventLogs, item) {
     try {
-        const selector = txdata.input.substr(0, 10);
-        switch(selector) {
-        case '0xa9059cbb':   // "transfer(address,uint256)"
-        case '0x23b872dd': { // "transferFrom(address,address,uint256)"
-            let ret = await getEventArguments('Transfer', table, receipt); // 이벤트 파라메터 획득
-            item.origin = ret.from; // 토큰 송신 계좌주소
-            item.dest = ret.to; // 토큰 수신 계좌주소
-            item.amount = ret.value; // 토큰 전송량
-            item.txtype = 'TRANSFER'; // txtype: transfer
+        if(inputs == null) {
+            item.tokenAddr = receipt.contractAddress.toLowerCase(); // DEPLOYED: 토큰 컨트랙트 주소
+            item.deployedType = 'token'; // DEPLOYED 컨트랙트 타입
+            item.creator = receipt.from; // 트랜젝션 생성자 주소 (deploy를 수행한 EOA == receipt.from)
+            item.txtype = 'DEPLOY';
             await TxToken.collection.insertOne(item);
-            break;
-        }
-        case '0x42966c68': { // "burn(uint256)"
-            let ret = await getEventArguments('Transfer', table, receipt); // 이벤트 파라메터 획득
-            item.origin = ret.from; // 토큰 소각 계좌주소
-            item.amount = ret.value; // 토큰 소각량
-            item.txtype = 'BURN'; // txtype: burn
-            await TxToken.collection.insertOne(item);
-            break;
-        }
-        case '0x095ea7b3': { // "approve(address,uint256)"
-            let ret = await getEventArguments('Approval', table, receipt); // 이벤트 파라메터 획득
-            item.origin = ret.owner; // 토큰 보유 계좌주소
-            item.dest = ret.spender; // 토큰 권한위임 계좌주소
-            item.amount = ret.value; // 토큰 권한위임량
-            item.txtype = 'APPROVE'; // txtype: approve
-            await TxToken.collection.insertOne(item);
-            break;
-        }
-        default:
-            break;
+        } else {
+            const selector = txdata.input.substr(0, 10);
+            switch(selector) {
+            case '0xa9059cbb':   // "transfer(address,uint256)"
+            case '0x23b872dd': { // "transferFrom(address,address,uint256)"
+                for(let i = 0; i < eventLogs.length; i++) {
+                    if(eventLogs[i].name == 'Transfer') {
+                        item.origin = eventLogs[i].ret.from; // 토큰 송신 계좌주소
+                        item.dest = eventLogs[i].ret.to; // 토큰 수신 계좌주소
+                        item.amount = eventLogs[i].ret.value; // 토큰 전송량
+                        item.txtype = 'TRANSFER';
+                        await TxToken.collection.insertOne(item);
+                        break;
+                    }
+                }
+                break;
+            }
+            case '0x42966c68': { // "burn(uint256)"
+                for(let i = 0; i < eventLogs.length; i++) {
+                    if(eventLogs[i].name == 'Transfer') {
+                        item.origin = eventLogs[i].ret.from; // 토큰 송신 계좌주소
+                        item.amount = eventLogs[i].ret.value; // 토큰 전송량
+                        item.txtype = 'BURN';
+                        await TxToken.collection.insertOne(item);
+                        break;
+                    }
+                }
+                break;
+            }
+            case '0x095ea7b3': { // "approve(address,uint256)"
+                for(let i = 0; i < eventLogs.length; i++) {
+                    if(eventLogs[i].name == 'Approval') {
+                        item.origin = eventLogs[i].ret.owner; // 토큰 보유 계좌주소
+                        item.dest = eventLogs[i].ret.spender; // 토큰 권한위임 계좌주소
+                        item.amount = eventLogs[i].ret.value; // 토큰 권한위임량
+                        item.txtype = 'APPROVE';
+                        await TxToken.collection.insertOne(item);
+                        break;
+                    }
+                }
+                break;
+            }
+            default:
+                break;
+            }
         }
     } catch(error) {
         Log('ERROR', `${colors.red(error)}`);
@@ -288,37 +311,38 @@ let procTxToken = async function(table, txdata, receipt, item) {
 }
 
 /**
- * @notice 트랜젝션을 파싱한다.
- * @dev 트랜젝션이 디카르고 tx인지 판별, 디카르고 tx에 한해서 txtype에 맞는 schema로 데이터를 가공
- * @param {Object} table Event Log Parsing 테이블 (이벤트 이름 / inputs / signature 조합)
+ * @notice 디카르고 트랜젝션을 파싱한다.
+ * @dev 디카르고 플랫폼에서 만든 트랜젝션인지 판별하여 데이터 파싱
  * @param {Object} txdata 트랜젝션 정보 (eth.getTransaction)
- * @param {Object} receipt Receipt 정보 (eth.getTransactionReceipt)
+ * @param {Object} table Event Log Parsing 테이블 (이벤트 이름 / inputs / signature 조합)
  * @param {String} timestamp 블록 timestamp (Epoch TIme)
  * @author jhhong
  */
-let parseTransaction = async function(table, txdata, receipt, timestamp) {
+let parseDkargoTxns = async function(txdata, table, timestamp) {
     try {
         if(txdata.input && txdata.input.length > 2) { // 컨트랙트 트랜젝션
-            let ca = (txdata.to === null)? (receipt.contractAddress.toLowerCase()) : (txdata.to);
+            const receipt = await web3.eth.getTransactionReceipt(txdata.hash);
+            let ca = (txdata.to === null)? (receipt.contractAddress.toLowerCase()) : (txdata.to.toLowerCase());
             if(await isDkargoContract(ca) == true) { // 디카르고 컨트랙트인 경우에만 처리
-                let prefix = await getDkargoPrefix(ca); // 디카르고 Prefix 획득
-                let item = new TxToken(); // Schema Object 생성
-                item.hash = txdata.hash.toLowerCase();
-                item.from = txdata.from.toLowerCase();
-                item.blockNumber = txdata.blockNumber;
-                item.gas = txdata.gas;
-                item.gasUsed = receipt.gasUsed;
-                item.gasPrice = String(txdata.gasPrice);
-                item.nonce = txdata.nonce;
-                item.status = receipt.status;
-                item.timestamp = timestamp;
-                item.value = web3.utils.fromWei(txdata.value);
-                item.txfee = parseFloat(web3.utils.fromWei(item.gasPrice, 'ether') * item.gasUsed).toFixed(4); // 수수료: 소수점 4자리
-                if(txdata.to === null) { // 트랜젝션: deploy
-                    await procTxDeploy(prefix, receipt, item);
-                } else if(prefix == 'token') {
-                    item.to = txdata.to.toLowerCase();
-                    await procTxToken(table, txdata, receipt, item);
+                let funcTable = {}; // Dictionary 변수 선언 (PREFIX-FUNCTION MAPPER)
+                funcTable['token'] = procTxToken; // 처리담당 함수 지정 'token'
+                let prefix = await getDkargoPrefix(ca); // 디카르고 PREFIX 획득
+                if(funcTable[prefix] != undefined) {
+                    let item = new TxToken(); // Schema Object 생성
+                    item.hash = txdata.hash.toLowerCase();
+                    item.from = txdata.from.toLowerCase();
+                    item.blockNumber = txdata.blockNumber;
+                    item.gas = txdata.gas;
+                    item.gasUsed = receipt.gasUsed;
+                    item.gasPrice = String(txdata.gasPrice);
+                    item.nonce = txdata.nonce;
+                    item.status = (receipt.status == true)? ('Success') : ('Failed');
+                    item.timestamp = timestamp;
+                    item.value = web3.utils.fromWei(txdata.value);
+                    item.txfee = parseFloat(web3.utils.fromWei(item.gasPrice, 'ether') * item.gasUsed).toFixed(4); // 수수료: 소수점 4자리
+                    let inputs = (txdata.to === null)? (null) : (txdata.input); // DEPLOY TX의 INPUT Data 크기가 너무 방대하여 param으로 넘기기에 Overhead가 큼
+                    let eventLogs = await getEventLogs(receipt, table);
+                    await funcTable[prefix](receipt, inputs, eventLogs, item);
                 }
             }
         }
@@ -350,9 +374,7 @@ let syncPastBlocks = async function(startblock, table) {
             Log('DEBUG', `New Block Detected: BLOCK:[${colors.blue(latest.blockNumber)}]`);
             const timestamp = data.timestamp;
             for(idx in data.transactions) {
-                const txdata  = data.transactions[idx];
-                const receipt = await web3.eth.getTransactionReceipt(txdata.hash);
-                await parseTransaction(table, txdata, receipt, timestamp);
+                await parseDkargoTxns(data.transactions[idx], table, timestamp);
             }
             curblock++;
         }
@@ -405,9 +427,7 @@ let RunProc = async function() {
             Log('DEBUG', `New Block Detected: BLOCK:[${colors.blue(latest.blockNumber)}]`);
             const timestamp = data.timestamp;
             for(idx in data.transactions) {
-                const txdata  = data.transactions[idx];
-                const receipt = await web3.eth.getTransactionReceipt(txdata.hash);
-                await parseTransaction(table, txdata, receipt, timestamp);
+                await parseDkargoTxns(data.transactions[idx], table, timestamp);
             }
         }).on('error', async (log) => {
             Log('ERROR', colors.red(`ERROR occured: ${log}`));
