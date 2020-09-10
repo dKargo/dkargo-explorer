@@ -256,11 +256,10 @@ let procTxToken = async function(receipt, inputs, eventLogs, item) {
         if(inputs == null) {
             item.tokenAddr = receipt.contractAddress.toLowerCase(); // DEPLOYED: 토큰 컨트랙트 주소
             item.deployedType = 'token'; // DEPLOYED 컨트랙트 타입
-            item.creator = receipt.from; // 트랜젝션 생성자 주소 (deploy를 수행한 EOA == receipt.from)
             item.txtype = 'DEPLOY';
             await TxToken.collection.insertOne(item);
         } else {
-            const selector = txdata.input.substr(0, 10);
+            const selector = inputs.substr(0, 10);
             switch(selector) {
             case '0xa9059cbb':   // "transfer(address,uint256)"
             case '0x23b872dd': { // "transferFrom(address,address,uint256)"
@@ -339,7 +338,7 @@ let parseDkargoTxns = async function(txdata, table, timestamp) {
                     item.status = (receipt.status == true)? ('Success') : ('Failed');
                     item.timestamp = timestamp;
                     item.value = web3.utils.fromWei(txdata.value);
-                    item.txfee = parseFloat(web3.utils.fromWei(item.gasPrice, 'ether') * item.gasUsed).toFixed(4); // 수수료: 소수점 4자리
+                    item.txfee = parseFloat(web3.utils.fromWei(item.gasPrice, 'ether') * item.gasUsed).toFixed(8); // 수수료: 소수점 8자리
                     let inputs = (txdata.to === null)? (null) : (txdata.input); // DEPLOY TX의 INPUT Data 크기가 너무 방대하여 param으로 넘기기에 Overhead가 큼
                     let eventLogs = await getEventLogs(receipt, table);
                     await funcTable[prefix](receipt, inputs, eventLogs, item);

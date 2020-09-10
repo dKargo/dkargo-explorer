@@ -289,7 +289,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 if(data.ordersCnt < start) {
                     throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${data.ordersCnt}]`);
                 }
-                let end = (data.count >= start + process.env.MAXELMT_PERPAGE)? (start + process.env.MAXELMT_PERPAGE) : (data.count);
+                let end = (data.ordersCnt >= start + process.env.MAXELMT_PERPAGE)? (start + process.env.MAXELMT_PERPAGE) : (data.ordersCnt);
                 let lists = await OrderTrack.find({companyAddr: addr}); // 물류사 담당 주문-구간 Lists
                 let orders = new Array(); // 물류사 담당 주문-구간을 담을 배열
                 for(let idx = start; idx < end; idx++) {
@@ -404,7 +404,7 @@ let getOrderInfo = async function(orderid, service) {
                 elmt.name = await ApiCompany.name(elmt.addr); // 물류사 이름
             }
             elmt.incentives = trackinfo[3]; // 배송 인센티브
-            elmt.status = await getOrderStatus(data.orderAddr, idx); // 배송 상태
+            elmt.status = await getOrderStatus(resp.orderAddr, idx); // 배송 상태
             tracks.push(elmt);
         }
         resp.tracking = tracks;
@@ -614,37 +614,33 @@ let getTransactionInfo = async function(txhash) {
                     eventLog.name = list[i].eventName;
                     eventLog.paramCnt = list[i].paramCount;
                     let params = new Array();
-                    switch(eventLog.paramCnt) {
-                    case 4: {
-                        let param = new Object();
-                        param.name = list[i].paramName04;
-                        param.type = list[i].paramType04;
-                        param.data = list[i].paramData04;
-                        params.push(param);
-                    }
-                    case 3: {
-                        let param = new Object();
-                        param.name = list[i].paramName03;
-                        param.type = list[i].paramType03;
-                        param.data = list[i].paramData03;
-                        params.push(param);
-                    }
-                    case 2: {
-                        let param = new Object();
-                        param.name = list[i].paramName02;
-                        param.type = list[i].paramType02;
-                        param.data = list[i].paramData02;
-                        params.push(param);
-                    }
-                    case 1: {
+                    if(list[i].paramName01 != undefined) {
                         let param = new Object();
                         param.name = list[i].paramName01;
                         param.type = list[i].paramType01;
                         param.data = list[i].paramData01;
                         params.push(param);
                     }
-                    default:
-                        break;
+                    if(list[i].paramName02 != undefined) {
+                        let param = new Object();
+                        param.name = list[i].paramName02;
+                        param.type = list[i].paramType02;
+                        param.data = list[i].paramData02;
+                        params.push(param);
+                    }
+                    if(list[i].paramName03 != undefined) {
+                        let param = new Object();
+                        param.name = list[i].paramName03;
+                        param.type = list[i].paramType03;
+                        param.data = list[i].paramData03;
+                        params.push(param);
+                    }
+                    if(list[i].paramName04 != undefined) {
+                        let param = new Object();
+                        param.name = list[i].paramName04;
+                        param.type = list[i].paramType04;
+                        param.data = list[i].paramData04;
+                        params.push(param);
                     }
                     eventLog.params = params;
                     eventLogs.push(eventLog);
@@ -718,37 +714,33 @@ let getTransactionInfo = async function(txhash) {
                     eventLog.name = list[i].eventName;
                     eventLog.paramCnt = list[i].paramCount;
                     let params = new Array();
-                    switch(eventLog.paramCnt) {
-                    case 4: {
-                        let param = new Object();
-                        param.name = list[i].paramName04;
-                        param.type = list[i].paramType04;
-                        param.data = list[i].paramData04;
-                        params.push(param);
-                    }
-                    case 3: {
-                        let param = new Object();
-                        param.name = list[i].paramName03;
-                        param.type = list[i].paramType03;
-                        param.data = list[i].paramData03;
-                        params.push(param);
-                    }
-                    case 2: {
-                        let param = new Object();
-                        param.name = list[i].paramName02;
-                        param.type = list[i].paramType02;
-                        param.data = list[i].paramData02;
-                        params.push(param);
-                    }
-                    case 1: {
+                    if(list[i].paramName01 != undefined) {
                         let param = new Object();
                         param.name = list[i].paramName01;
                         param.type = list[i].paramType01;
                         param.data = list[i].paramData01;
                         params.push(param);
                     }
-                    default:
-                        break;
+                    if(list[i].paramName02 != undefined) {
+                        let param = new Object();
+                        param.name = list[i].paramName02;
+                        param.type = list[i].paramType02;
+                        param.data = list[i].paramData02;
+                        params.push(param);
+                    }
+                    if(list[i].paramName03 != undefined) {
+                        let param = new Object();
+                        param.name = list[i].paramName03;
+                        param.type = list[i].paramType03;
+                        param.data = list[i].paramData03;
+                        params.push(param);
+                    }
+                    if(list[i].paramName04 != undefined) {
+                        let param = new Object();
+                        param.name = list[i].paramName04;
+                        param.type = list[i].paramType04;
+                        param.data = list[i].paramData04;
+                        params.push(param);
                     }
                     eventLog.params = params;
                     eventLogs.push(eventLog);
@@ -776,9 +768,7 @@ let getTransactionInfo = async function(txhash) {
  */
 module.exports = function(app, service, token) {
     app.get('/account/:address', async function(req, res) {
-        let page =(req.query.p === undefined)? (1) : (req.query.p);
-        let type =(req.query.type === undefined)? ('logistics') : (req.query.type);
-        let ret = await getAccountInfo(req.params.address, page, type, service, token);
+        let ret = await getAccountInfo(req.params.address, req.query.p, req.query.type, service, token);
         res.end(ret);
     });
     app.get('/order/:orderid', async function(req, res) {

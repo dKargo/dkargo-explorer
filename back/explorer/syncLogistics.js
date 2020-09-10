@@ -302,7 +302,6 @@ let procTxService = async function(receipt, inputs, eventLogs, item) {
         if(inputs == null) { // 트랜젝션: DEPLOY
             item.serviceAddr = receipt.contractAddress.toLowerCase(); // DEPLOYED: 서비스 컨트랙트 주소
             item.deployedType = 'service'; // DEPLOYED 컨트랙트 타입
-            item.creator = receipt.from; // 트랜젝션 생성자 주소
             item.txtype = 'DEPLOY';
             await TxLogistics.collection.insertOne(item); // 물류 트랜젝션 정보 DB에 저장
         } else {
@@ -313,7 +312,6 @@ let procTxService = async function(receipt, inputs, eventLogs, item) {
                     if(eventLogs[i].name == 'CompanyRegistered') {
                         item.companyName = await ApiCompany.name(eventLogs[i].ret.company); // 물류사 컨트랙트 주소로 물류사 이름 획득
                         item.companyAddr = eventLogs[i].ret.company; // 물류사 컨트랙트 주소
-                        item.creator = receipt.to.toLowerCase(); // 트랜젝션 생성자 주소 (서비스 컨트랙트)
                         item.txtype = 'REGISTER';
                         await TxLogistics.collection.insertOne(item);
                         break;
@@ -326,7 +324,6 @@ let procTxService = async function(receipt, inputs, eventLogs, item) {
                     if(eventLogs[i].name == 'CompanyUnregistered') {
                         item.companyName = await ApiCompany.name(eventLogs[i].ret.company); // 물류사 컨트랙트 주소로 물류사 이름 획득
                         item.companyAddr = eventLogs[i].ret.company; // 물류사 컨트랙트 주소
-                        item.creator = receipt.to.toLowerCase(); // 트랜젝션 생성자 주소 (서비스 컨트랙트)
                         item.txtype = 'UNREGISTER';
                         await TxLogistics.collection.insertOne(item);
                         break;
@@ -337,7 +334,6 @@ let procTxService = async function(receipt, inputs, eventLogs, item) {
             case '0x35e646ea': { // "markOrderPayed(address)"
                 item.orderAddr = `0x${inputs.substring(34, 74)}`; // inputs에서 주문 컨트랙트 주소 추출
                 item.orderId = await ApiOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
-                item.creator = receipt.to.toLowerCase(); // 트랜젝션 생성자 주소 (서비스 컨트랙트)
                 item.txtype = 'PAYMENT-CONFIRM';
                 await TxLogistics.collection.insertOne(item);
                 break;
@@ -375,7 +371,6 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
         if(inputs == null) { // 트랜젝션: DEPLOY
             item.companyAddr = receipt.contractAddress.toLowerCase(); // DEPLOYED: 물류사 컨트랙트 주소
             item.deployedType = 'company'; // DEPLOYED 컨트랙트 타입
-            item.creator = receipt.from; // 트랜젝션 생성자 주소
             item.txtype = 'DEPLOY';
             await TxLogistics.collection.insertOne(item); // 물류 트랜젝션 정보 DB에 저장
         } else {
@@ -386,8 +381,7 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
                 item.orderId = await ApiOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
                 item.companyAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
                 item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
-                item.transportId = `0x${inputs.substring(74, 138)}`; // inputs에서 운송번호 추출
-                item.creator = receipt.to.toLowerCase(); // 물류TX 생성주체 (물류사 컨트랙트)
+                item.transportId = parseInt(`0x${inputs.substring(74, 138)}`).toString(10); // inputs에서 운송번호 추출
                 item.txtype = 'ORDER-LAUNCH';
                 await TxLogistics.collection.insertOne(item);
                 break;
@@ -397,9 +391,8 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
                 item.orderId = await ApiOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
                 item.companyAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
                 item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
-                item.transportId = `0x${inputs.substring(74, 138)}`; // inputs에서 운송번호 추출
-                item.code = `0x${inputs.substring(138, 202)}`; // inputs에서 배송코드 추출
-                item.creator = receipt.to.toLowerCase(); // 물류TX 생성주체 (물류사 컨트랙트)
+                item.transportId = parseInt(`0x${inputs.substring(74, 138)}`).toString(10); // inputs에서 운송번호 추출
+                item.code = parseInt(`0x${inputs.substring(138, 202)}`).toString(10); // inputs에서 배송코드 추출
                 item.txtype = 'ORDER-UPDATE';
                 await TxLogistics.collection.insertOne(item);
                 break;
@@ -407,7 +400,6 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
             case '0x9870d7fe': { // "addOperator(address)"
                 item.companyAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
                 item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
-                item.creator = receipt.to.toLowerCase(); // 물류TX 생성주체 (물류사 컨트랙트)
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'OperatorAdded') {
                         item.param01 = eventLogs[i].ret.account; // 등록될 운영자 주소
@@ -421,7 +413,6 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
             case '0xac8a584a': { // "removeOperator(address)"
                 item.companyAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
                 item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
-                item.creator = receipt.to.toLowerCase(); // 물류TX 생성주체 (물류사 컨트랙트)
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'OperatorRemoved') {
                         item.param01 = eventLogs[i].ret.account; // 등록될 운영자 주소
@@ -435,7 +426,6 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
             case '0xc47f0027': { // "setName(string)"
                 item.companyAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
                 item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
-                item.creator = receipt.to.toLowerCase(); // 물류TX 생성주체 (물류사 컨트랙트)
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'CompanyNameSet') {
                         item.param01 = eventLogs[i].ret.oldName; // 물류사 기존 이름
@@ -450,7 +440,6 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
             case '0x252498a2': { // "setUrl(string)"
                 item.companyAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
                 item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
-                item.creator = receipt.to.toLowerCase(); // 물류TX 생성주체 (물류사 컨트랙트)
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'CompanyUrlSet') {
                         item.param01 = eventLogs[i].ret.oldUrl; // 물류사 기존 URL
@@ -465,7 +454,6 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
             case '0x3bbed4a0': { // "setRecipient(address)"
                 item.companyAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
                 item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
-                item.creator = receipt.to.toLowerCase(); // 물류TX 생성주체 (물류사 컨트랙트)
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'CompanyRecipientSet') {
                         item.param01 = eventLogs[i].ret.oldRecipient; // 물류사 기존 수취인주소
@@ -502,7 +490,6 @@ let procTxOrder = async function(receipt, inputs, eventLogs, item) {
             item.orderAddr = receipt.contractAddress.toLowerCase(); // DEPLOYED: 주문 컨트랙트 주소
             let orderid  = await ApiOrder.orderid(receipt.contractAddress); // 주문번호
             item.deployedType = 'order'; // DEPLOYED 컨트랙트 타입
-            item.creator = receipt.from; // 트랜젝션 생성자 주소
             item.txtype = 'DEPLOY';
             await TxLogistics.collection.insertOne(item); // 물류 트랜젝션 정보 DB에 저장
             let totalcnt = await ApiOrder.trackingCount(receipt.contractAddress); // 총 주문구간 갯수
@@ -530,7 +517,6 @@ let procTxOrder = async function(receipt, inputs, eventLogs, item) {
             case '0x786643c0': { // "submitOrderCreate()"
                 item.orderAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
                 item.orderId = await ApiOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
-                item.creator = receipt.from; // 트랜젝션 생성자 주소 (화주 주소)
                 item.txtype = 'SUBMIT';
                 await TxLogistics.collection.insertOne(item);
                 break;
@@ -538,7 +524,6 @@ let procTxOrder = async function(receipt, inputs, eventLogs, item) {
             case '0x252498a2': { // "setUrl(string)"
                 item.orderAddr = receipt.to.toLowerCase(); // 주문 컨트랙트 주소
                 item.orderId = await ApiOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
-                item.creator = receipt.to.toLowerCase(); // 물류TX 생성주체 (주문 컨트랙트)
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'OrderUrlSet') {
                         item.param01 = eventLogs[i].ret.oldUrl; // 물류사 기존 URL
@@ -590,7 +575,7 @@ let parseDkargoTxns = async function(txdata, table, timestamp) {
                     item.status = (receipt.status == true)? ('Success') : ('Failed');
                     item.timestamp = timestamp;
                     item.value = web3.utils.fromWei(txdata.value);
-                    item.txfee = parseFloat(web3.utils.fromWei(item.gasPrice, 'ether') * item.gasUsed).toFixed(4); // 수수료: 소수점 4자리
+                    item.txfee = parseFloat(web3.utils.fromWei(item.gasPrice, 'ether') * item.gasUsed).toFixed(8); // 수수료: 소수점 8자리
                     let inputs = (txdata.to === null)? (null) : (txdata.input); // DEPLOY TX의 INPUT Data 크기가 너무 방대하여 param으로 넘기기에 Overhead가 큼
                     let eventLogs = await getEventLogs(receipt, table);
                     await funcTable[prefix](receipt, inputs, eventLogs, item);

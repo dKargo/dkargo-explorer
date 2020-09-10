@@ -24,7 +24,6 @@ const ExpTxLogistics = new mongoose.Schema({
   'code':         String, // 배송코드 (물류정보)
   'companyAddr':  String, // 담당 물류사 컨트랙트 주소 (물류정보)
   'companyName':  String, // 담당 물류사 이름 (물류정보)
-  'creator'    :  String, // 트랜젝션 생성주체 (ie. 컨트랙트 deploy: from과 같다)
   'deployedType': String, // deploy된 컨트랙트의 타입 (service/company/order) (물류정보)
   'gas':          Number, // 가스 배정량
   'gasUsed':      Number, // 실제 가스 사용량
@@ -54,7 +53,6 @@ const ExpTxToken = new mongoose.Schema({
   'dest':        {type: String, lowercase: true}, // 토큰 수신지 주소
   'amount':       String, // 트랜젝션에서 이동되는 DKA양
   'blockNumber':  Number, // 블록넘버
-  'creator'    :  String, // 트랜젝션 생성주체 (ie. 컨트랙트 deploy: from과 같다)
   'deployedType': String, // deploy된 컨트랙트의 타입 (token)
   'gas':          Number, // 가스 배정량
   'gasUsed':      Number, // 실제 가스 사용량
