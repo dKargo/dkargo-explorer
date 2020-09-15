@@ -89,7 +89,10 @@ module.exports.prov1SendTx = async function(privkey, rawtx) {
         tx.sign(key); // Private Key를 이용하여 Transaction 서명 수행
         const serialized = tx.serialize(); // Serialize
         const rawdata = '0x' + serialized.toString('hex'); // Raw data 생성
-        let receipt = await prov1.eth.sendSignedTransaction(rawdata); // 서명된 Transaction 전송
+        let receipt = await prov1.eth.sendSignedTransaction(rawdata)
+        .on('transactionHash', async function(txhash) {
+            Log('DEBUG', `TX:[${colors.green(txhash)}] Created!`);
+        }); // 서명된 Transaction 전송
         return receipt; // receipt 정보 반환
     } catch(error) {
         let action = `Action: prov1SendTx`;
@@ -117,7 +120,10 @@ module.exports.prov2SendTx = async function(privkey, rawtx) {
         tx.sign(key); // Private Key를 이용하여 Transaction 서명 수행
         const serialized = tx.serialize(); // Serialize
         const rawdata = '0x' + serialized.toString('hex'); // Raw data 생성
-        let receipt = await prov2.eth.sendSignedTransaction(rawdata); // 서명된 Transaction 전송
+        let receipt = await prov2.eth.sendSignedTransaction(rawdata)
+        .on('transactionHash', async function(txhash) {
+            Log('DEBUG', `TX:[${colors.green(txhash)}] Created!`);
+        }); // 서명된 Transaction 전송
         return receipt; // receipt 정보 반환
     } catch(error) {
         let action = `Action: prov2SendTx`;

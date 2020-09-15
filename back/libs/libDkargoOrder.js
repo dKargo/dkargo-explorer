@@ -192,16 +192,21 @@ module.exports.url = async function(ca) {
  * @param {string} cmder 명령 수행자의 주소
  * @param {string} privkey 명령 수행자의 private key
  * @param {number} nonce NONCE값
+ * @param {number} gasprice GAS 가격 (wei단위), 디폴트 = 0
  * @return 성공 시 txhash, 실패 시 null
  * @author jhhong
  */
-module.exports.submitOrderCreate = async function(ca, cmder, privkey, nonce) {
+module.exports.submitOrderCreate = async function(ca, cmder, privkey, nonce, gasprice = 0) {
     try {
         let order = await new web3.eth.Contract(abi, ca);
         let gas  = await order.methods.submitOrderCreate().estimateGas({from: cmder});
         let data = await order.methods.submitOrderCreate().encodeABI();
-        Log('DEBUG', `GAS (submitOrderCreate) = [${colors.cyan(gas)}]`);
-        const rawtx = {to: ca, nonce: web3.utils.toHex(nonce), gas: gas, data: data};
+        if (gasprice == 0) {
+            gasprice = await web3.eth.getGasPrice();
+        }
+        let gphex = `0x${parseInt(gasprice).toString(16)}`;
+        Log('DEBUG', `GAS (submitOrderCreate) = [${colors.cyan(gas)}], GAS-PRICE = [${colors.cyan(gasprice)}]`);
+        const rawtx = {to: ca, nonce: web3.utils.toHex(nonce), gas: gas, gasPrice: gphex, data: data};
         let receipt = await sendTransaction(privkey, rawtx);
         return receipt.transactionHash;
     } catch(error) {
@@ -221,16 +226,21 @@ module.exports.submitOrderCreate = async function(ca, cmder, privkey, nonce) {
  * @param {string} privkey 명령 수행자의 private key
  * @param {string} url URL 정보
  * @param {number} nonce NONCE값
+ * @param {number} gasprice GAS 가격 (wei단위), 디폴트 = 0
  * @return 성공 시 txhash, 실패 시 null
  * @author jhhong
  */
-module.exports.setUrl = async function(ca, cmder, privkey, url, nonce) {
+module.exports.setUrl = async function(ca, cmder, privkey, url, nonce, gasprice = 0) {
     try {
         let order = await new web3.eth.Contract(abi, ca);
         let gas  = await order.methods.setUrl(url).estimateGas({from: cmder});
         let data = await order.methods.setUrl(url).encodeABI();
-        Log('DEBUG', `GAS (setUrl) = [${colors.cyan(gas)}]`);
-        const rawtx = {to: ca, nonce: web3.utils.toHex(nonce), gas: gas, data: data};
+        if (gasprice == 0) {
+            gasprice = await web3.eth.getGasPrice();
+        }
+        let gphex = `0x${parseInt(gasprice).toString(16)}`;
+        Log('DEBUG', `GAS (setUrl) = [${colors.cyan(gas)}], GAS-PRICE = [${colors.cyan(gasprice)}]`);
+        const rawtx = {to: ca, nonce: web3.utils.toHex(nonce), gas: gas, gasPrice: gphex, data: data};
         let receipt = await sendTransaction(privkey, rawtx);
         return receipt.transactionHash;
     } catch(error) {
@@ -254,10 +264,11 @@ module.exports.setUrl = async function(ca, cmder, privkey, url, nonce) {
  * @param {array} codes 물류 트래킹 코드 배열
  * @param {array} incentives 각 구간에서의 물류수행 완료 시 받는 인센티브 배열
  * @param {number} nonce NONCE값
+ * @param {number} gasprice GAS 가격 (wei단위), 디폴트 = 0
  * @return 성공 시 컨트랙트 주소, 실패 시 null
  * @author jhhong
  */
- module.exports.deployOrder = async function(cmder, privkey, url, service, members, codes, incentives, nonce) {
+ module.exports.deployOrder = async function(cmder, privkey, url, service, members, codes, incentives, nonce, gasprice = 0) {
     try {
         if(members.length != codes.length || members.length != incentives.length) {
             throw new Error(`Array size is different!`)
@@ -265,8 +276,12 @@ module.exports.setUrl = async function(ca, cmder, privkey, url, nonce) {
         let order = await new web3.eth.Contract(abi);
         let gas  = await order.deploy({data: bytecode, arguments:[url, service, members, codes, incentives]}).estimateGas({from: cmder});
         let data = await order.deploy({data: bytecode, arguments:[url, service, members, codes, incentives]}).encodeABI();
-        Log('DEBUG', `GAS (deployOrder) = [${colors.cyan(gas)}]`);
-        const rawtx = {nonce: web3.utils.toHex(nonce), gas: gas, data: data};
+        if (gasprice == 0) {
+            gasprice = await web3.eth.getGasPrice();
+        }
+        let gphex = `0x${parseInt(gasprice).toString(16)}`;
+        Log('DEBUG', `GAS (deployOrder) = [${colors.cyan(gas)}], GAS-PRICE = [${colors.cyan(gasprice)}]`);
+        const rawtx = {nonce: web3.utils.toHex(nonce), gas: gas, gasPrice: gphex, data: data};
         let receipt = await sendTransaction(privkey, rawtx);
         return [receipt.contractAddress, receipt.blockNumber];
     } catch(error) {

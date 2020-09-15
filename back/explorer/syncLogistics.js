@@ -28,8 +28,8 @@ const OrderTrack  = mongoose.model('ExpOrderTrack'); // module.exports
 const EventLogs   = mongoose.model('ExpEvtLogistics'); // module.exports
 
 //// APIs & LIBs
-const ApiCompany = require('../libs/libDkargoCompany.js'); // 물류사 컨트랙트 관련 Library
-const ApiOrder   = require('../libs/libDkargoOrder.js'); // 주문 컨트랙트 관련 Library
+const libCompany = require('../libs/libDkargoCompany.js'); // 물류사 컨트랙트 관련 Library
+const libOrder   = require('../libs/libDkargoOrder.js'); // 주문 컨트랙트 관련 Library
 const hex2a      = require('../libs/libCommon.js').hex2a; // HEXA-STRING을 ASCII로 변환해주는 함수
 
 /**
@@ -310,7 +310,7 @@ let procTxService = async function(receipt, inputs, eventLogs, item) {
             case '0x4420e486': { // "register(address)"
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'CompanyRegistered') {
-                        item.companyName = await ApiCompany.name(eventLogs[i].ret.company); // 물류사 컨트랙트 주소로 물류사 이름 획득
+                        item.companyName = await libCompany.name(eventLogs[i].ret.company); // 물류사 컨트랙트 주소로 물류사 이름 획득
                         item.companyAddr = eventLogs[i].ret.company; // 물류사 컨트랙트 주소
                         item.txtype = 'REGISTER';
                         await TxLogistics.collection.insertOne(item);
@@ -322,7 +322,7 @@ let procTxService = async function(receipt, inputs, eventLogs, item) {
             case '0x2ec2c246': { // "unregister(address)"
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'CompanyUnregistered') {
-                        item.companyName = await ApiCompany.name(eventLogs[i].ret.company); // 물류사 컨트랙트 주소로 물류사 이름 획득
+                        item.companyName = await libCompany.name(eventLogs[i].ret.company); // 물류사 컨트랙트 주소로 물류사 이름 획득
                         item.companyAddr = eventLogs[i].ret.company; // 물류사 컨트랙트 주소
                         item.txtype = 'UNREGISTER';
                         await TxLogistics.collection.insertOne(item);
@@ -333,7 +333,7 @@ let procTxService = async function(receipt, inputs, eventLogs, item) {
             }
             case '0x35e646ea': { // "markOrderPayed(address)"
                 item.orderAddr = `0x${inputs.substring(34, 74)}`; // inputs에서 주문 컨트랙트 주소 추출
-                item.orderId = await ApiOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
+                item.orderId = await libOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
                 item.txtype = 'PAYMENT-CONFIRM';
                 await TxLogistics.collection.insertOne(item);
                 break;
@@ -378,9 +378,9 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
             switch(selector) {
             case '0xedfb6516': { // "launch(address,uint256)"
                 item.orderAddr = `0x${inputs.substring(34, 74)}`; // inputs에서 주문 컨트랙트 주소 추출
-                item.orderId = await ApiOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
+                item.orderId = await libOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
                 item.companyAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
-                item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
+                item.companyName = await libCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
                 item.transportId = parseInt(`0x${inputs.substring(74, 138)}`).toString(10); // inputs에서 운송번호 추출
                 item.txtype = 'ORDER-LAUNCH';
                 await TxLogistics.collection.insertOne(item);
@@ -388,9 +388,9 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
             }
             case '0xe50097a9': { // "updateOrderCode(address,uint256,uint256)"
                 item.orderAddr = `0x${inputs.substring(34, 74)}`; // inputs에서 주문 컨트랙트 주소 추출
-                item.orderId = await ApiOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
+                item.orderId = await libOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
                 item.companyAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
-                item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
+                item.companyName = await libCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
                 item.transportId = parseInt(`0x${inputs.substring(74, 138)}`).toString(10); // inputs에서 운송번호 추출
                 item.code = parseInt(`0x${inputs.substring(138, 202)}`).toString(10); // inputs에서 배송코드 추출
                 item.txtype = 'ORDER-UPDATE';
@@ -399,7 +399,7 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
             }
             case '0x9870d7fe': { // "addOperator(address)"
                 item.companyAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
-                item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
+                item.companyName = await libCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'OperatorAdded') {
                         item.param01 = eventLogs[i].ret.account; // 등록될 운영자 주소
@@ -412,7 +412,7 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
             }
             case '0xac8a584a': { // "removeOperator(address)"
                 item.companyAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
-                item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
+                item.companyName = await libCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'OperatorRemoved') {
                         item.param01 = eventLogs[i].ret.account; // 등록될 운영자 주소
@@ -425,7 +425,7 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
             }
             case '0xc47f0027': { // "setName(string)"
                 item.companyAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
-                item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
+                item.companyName = await libCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'CompanyNameSet') {
                         item.param01 = eventLogs[i].ret.oldName; // 물류사 기존 이름
@@ -439,7 +439,7 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
             }
             case '0x252498a2': { // "setUrl(string)"
                 item.companyAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
-                item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
+                item.companyName = await libCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'CompanyUrlSet') {
                         item.param01 = eventLogs[i].ret.oldUrl; // 물류사 기존 URL
@@ -453,7 +453,7 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
             }
             case '0x3bbed4a0': { // "setRecipient(address)"
                 item.companyAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
-                item.companyName = await ApiCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
+                item.companyName = await libCompany.name(item.companyAddr); // 물류사 컨트랙트 주소로 물류사 이름 획득
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'CompanyRecipientSet') {
                         item.param01 = eventLogs[i].ret.oldRecipient; // 물류사 기존 수취인주소
@@ -488,12 +488,12 @@ let procTxOrder = async function(receipt, inputs, eventLogs, item) {
     try {
         if(inputs == null) { // 트랜젝션: DEPLOY
             item.orderAddr = receipt.contractAddress.toLowerCase(); // DEPLOYED: 주문 컨트랙트 주소
-            let orderid  = await ApiOrder.orderid(receipt.contractAddress); // 주문번호
+            let orderid  = await libOrder.orderid(receipt.contractAddress); // 주문번호
             item.deployedType = 'order'; // DEPLOYED 컨트랙트 타입
             item.txtype = 'DEPLOY';
             await TxLogistics.collection.insertOne(item); // 물류 트랜젝션 정보 DB에 저장
-            let totalcnt = await ApiOrder.trackingCount(receipt.contractAddress); // 총 주문구간 갯수
-            if(await ApiOrder.isComplete(receipt.contractAddress) == true) {
+            let totalcnt = await libOrder.trackingCount(receipt.contractAddress); // 총 주문구간 갯수
+            if(await libOrder.isComplete(receipt.contractAddress) == true) {
                 totalcnt = totalcnt - 1;
             }
             for(let idx = 0; idx < totalcnt; idx++) {
@@ -501,13 +501,13 @@ let procTxOrder = async function(receipt, inputs, eventLogs, item) {
                 track.blockNumber = receipt.blockNumber; // 블록넘버
                 track.orderAddr = receipt.contractAddress.toLowerCase(); // 주문 컨트랙트 주소
                 track.orderId = orderid; // 주문번호
-                let trackinfo = await ApiOrder.tracking(receipt.contractAddress, idx); // 주문 구간정보
+                let trackinfo = await libOrder.tracking(receipt.contractAddress, idx); // 주문 구간정보
                 track.companyAddr = trackinfo[1].toLowerCase(); // 담당자 주소(화주 or 물류사)
                 track.code = trackinfo[2]; // 물류 배송코드
                 track.incentives = trackinfo[3]; // 인센티브 정보
                 track.transportId = idx; // 운송번호
                 if(idx > 0) { // idx=0은 화주, 물류사가 아니므로 물류사 이름을 기록하지 않음
-                    track.companyName = await ApiCompany.name(trackinfo[1]); // 물류사 이름
+                    track.companyName = await libCompany.name(trackinfo[1]); // 물류사 이름
                 }
                 await OrderTrack.collection.insertOne(track); // 구간정보 DB에 저장
             }
@@ -516,14 +516,14 @@ let procTxOrder = async function(receipt, inputs, eventLogs, item) {
             switch(selector) {
             case '0x786643c0': { // "submitOrderCreate()"
                 item.orderAddr = receipt.to.toLowerCase(); // 물류사 컨트랙트 주소
-                item.orderId = await ApiOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
+                item.orderId = await libOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
                 item.txtype = 'SUBMIT';
                 await TxLogistics.collection.insertOne(item);
                 break;
             }
             case '0x252498a2': { // "setUrl(string)"
                 item.orderAddr = receipt.to.toLowerCase(); // 주문 컨트랙트 주소
-                item.orderId = await ApiOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
+                item.orderId = await libOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'OrderUrlSet') {
                         item.param01 = eventLogs[i].ret.oldUrl; // 물류사 기존 URL

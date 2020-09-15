@@ -28,10 +28,10 @@ const EvtLogistics = mongoose.model('ExpEvtLogistics'); // module.exports
 const EvtToken     = mongoose.model('ExpEvtToken'); // module.exports
 
 //// APIs & LIBs
-const ApiService = require('../libs/libDkargoService.js'); // 서비스 컨트랙트 관련 Library
-const ApiCompany = require('../libs/libDkargoCompany.js'); // 물류사 컨트랙트 관련 Library
-const ApiOrder   = require('../libs/libDkargoOrder.js'); // 주문 컨트랙트 관련 Library
-const ApiToken   = require('../libs/libDkargoToken.js'); // 토큰 컨트랙트 관련 Library
+const libService = require('../libs/libDkargoService.js'); // 서비스 컨트랙트 관련 Library
+const libCompany = require('../libs/libDkargoCompany.js'); // 물류사 컨트랙트 관련 Library
+const libOrder   = require('../libs/libDkargoOrder.js'); // 주문 컨트랙트 관련 Library
+const libToken   = require('../libs/libDkargoToken.js'); // 토큰 컨트랙트 관련 Library
 const ZEROADDR   = require('../libs/libCommon.js').ZEROADDR; // ZERO-ADDRESS 상수
 
 //// WEB3
@@ -118,12 +118,12 @@ let getAddressType = async function(addr) {
  */
 let getOrderStatus = async function(addr, transportId) {
     try {
-        if(await ApiOrder.isComplete(addr) == true) {
+        if(await libOrder.isComplete(addr) == true) {
             return 'Complete';
-        } else if(await ApiOrder.isFailed(addr) == true) {
+        } else if(await libOrder.isFailed(addr) == true) {
             return 'Failed';
         } else {
-            let curstep = await ApiOrder.currentStep(addr);
+            let curstep = await libOrder.currentStep(addr);
             if(curstep < transportId) {
                 return 'Not Started';
             } else if(curstep == transportId) {
@@ -199,7 +199,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
         }
         addr = addr.toLowerCase();
         if(addrtype == 'order') { // Addr이 주문 컨트랙트 주소인 경우
-            let servcmp = await ApiOrder.service(addr); // 물류사에 바인딩된 서비스 컨트랙트 주소 획득하여 param 체크
+            let servcmp = await libOrder.service(addr); // 물류사에 바인딩된 서비스 컨트랙트 주소 획득하여 param 체크
             if(servcmp != service) {
                 throw new Error(`Not Matched Service! param=[${service}] / embedded=[${servcmp}]`);
             }
@@ -207,21 +207,21 @@ let getAccountInfo = async function(addr, page, type, service, token) {
             resp.accountType = 'order';
             let data = new Object();
             data.orderAddr = addr; // 주문 컨트랙트 주소
-            data.orderId = await ApiOrder.orderid(addr); // 주문번호
-            data.shipper = await ApiOrder.tracking(addr, 0)[1]; // 화주 주소
-            data.totalIncentives = await ApiOrder.totalIncentive(addr); // 총 인센티브 합
-            data.url = await ApiOrder.url(addr); // 주문 상세 URL
-            data.currentStep = parseInt(await ApiOrder.currentStep(addr)) + 1; // 주문 현재 배송구간 인덱스 (0부터 시작 -> +1)
-            data.trackingCount = await ApiOrder.trackingCount(addr); // 주문 총 배송구간 갯수
+            data.orderId = await libOrder.orderid(addr); // 주문번호
+            data.shipper =(await libOrder.tracking(addr, 0))[1]; // 화주 주소
+            data.totalIncentives = await libOrder.totalIncentive(addr); // 총 인센티브 합
+            data.url = await libOrder.url(addr); // 주문 상세 URL
+            data.currentStep = parseInt(await libOrder.currentStep(addr)) + 1; // 주문 현재 배송구간 인덱스 (0부터 시작 -> +1)
+            data.trackingCount = await libOrder.trackingCount(addr); // 주문 총 배송구간 갯수
             let tracks = new Array(); // 주문의 각 배송정보를 담을 배열
             for(let idx = 0; idx < data.trackingCount; idx++) {
-                let trackinfo = await ApiOrder.tracking(addr, idx); // 구간별 배송정보
+                let trackinfo = await libOrder.tracking(addr, idx); // 구간별 배송정보
                 let elmt = new Object();
                 elmt.addr = trackinfo[1]; // 담당자 주소 (화주 or 물류사)
                 elmt.code = trackinfo[2]; // 배송 코드
                 elmt.type = await getAddressType(elmt.addr); // 주소 타입: ('eoa' / 'company')
                 if(elmt.type == 'company') {
-                    elmt.name = await ApiCompany.name(elmt.addr); // 물류사 이름
+                    elmt.name = await libCompany.name(elmt.addr); // 물류사 이름
                 }
                 elmt.incentives = trackinfo[3]; // 배송 인센티브
                 elmt.status = await getOrderStatus(data.orderAddr, idx); // 배송 상태
@@ -252,17 +252,17 @@ let getAccountInfo = async function(addr, page, type, service, token) {
             if(curpage > process.env.MAXPAGES || curpage == 0) { // 체크: page index
                 throw new Error(`Out Of Scope Page! page: [${curpage}]`);
             }
-            let servcmp = await ApiCompany.service(addr); // 물류사에 바인딩된 서비스 컨트랙트 주소 획득하여 param 체크
+            let servcmp = await libCompany.service(addr); // 물류사에 바인딩된 서비스 컨트랙트 주소 획득하여 param 체크
             if(servcmp != service) {
                 throw new Error(`Not Matched Service! param=[${service}] / embedded=[${servcmp}]`);
             }
             let data = new Object();
-            data.registered = await ApiService.isMember(service, addr); // 물류사 등록 여부
+            data.registered = await libService.isMember(service, addr); // 물류사 등록 여부
             data.companyAddr = addr; // 물류사 컨트랙트 주소
-            data.companyName = await ApiCompany.name(addr); // 물류사 이름
-            data.url = await ApiCompany.url(addr); // 물류사 상세정보 URL (ie. Home Page)
-            data.recipient = await ApiCompany.recipient(addr); // 물류사 수취인 주소
-            data.grade = await ApiService.degree(service, addr); // 물류사의 평점 획득
+            data.companyName = await libCompany.name(addr); // 물류사 이름
+            data.url = await libCompany.url(addr); // 물류사 상세정보 URL (ie. Home Page)
+            data.recipient = await libCompany.recipient(addr); // 물류사 수취인 주소
+            data.grade = await libService.degree(service, addr); // 물류사의 평점 획득
             data.txnsCnt = await TxLogistics.countDocuments({companyAddr: addr}); // addr과 관련있는 TX 총갯수
             data.ordersCnt = await OrderTrack.countDocuments({companyAddr: addr}); // 물류사가 담당하는 주문-구간 총 갯수
             data.datatype = type; // 요청타입: txns / orders
@@ -317,7 +317,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 throw new Error(`Out Of Scope Page! page: [${curpage}]`);
             }
             let data = new Object();
-            data.balance = await ApiToken.balanceOf(token, addr); // 토큰 보유량
+            data.balance = await libToken.balanceOf(token, addr); // 토큰 보유량
             data.logisticsCnt = await TxLogistics.countDocuments({from: addr}); // addr과 관련있는 TX 총갯수
             data.tokensCnt = await TxToken.countDocuments({$or: [{from: addr}, {origin: addr}, {dest: addr}]}); // addr과 관련있는 TX 총갯수
             data.datatype = curtype; // 요청타입: 계정의 물류트랜젝션?, 토큰트랜젝션?
@@ -380,28 +380,28 @@ let getAccountInfo = async function(addr, page, type, service, token) {
  */
 let getOrderInfo = async function(orderid, service) {
     try {
-        let addr = await ApiService.orders(service, orderid);
+        let addr = await libService.orders(service, orderid);
         if (addr == ZEROADDR) {
             throw new Error(`Order Not Found! ORDER-ID=[${orderid}]`);
         }
         addr = addr.toLowerCase();
         let resp = new Object(); // 결과값을 담을 오브젝트
         resp.orderAddr = addr; // 주문 컨트랙트 주소
-        resp.orderId = await ApiOrder.orderid(addr); // 주문번호
-        resp.shipper = await ApiOrder.tracking(addr, 0)[1]; // 화주 주소
-        resp.totalIncentives = await ApiOrder.totalIncentive(addr); // 총 인센티브 합
-        resp.url = await ApiOrder.url(addr); // 주문 상세 URL
-        resp.currentStep = parseInt(await ApiOrder.currentStep(addr)) + 1; // 주문 현재 배송구간 인덱스 (0부터 시작 -> +1)
-        resp.trackingCount = await ApiOrder.trackingCount(addr); // 주문 총 배송구간 갯수
+        resp.orderId = await libOrder.orderid(addr); // 주문번호
+        resp.shipper =(await libOrder.tracking(addr, 0))[1]; // 화주 주소
+        resp.totalIncentives = await libOrder.totalIncentive(addr); // 총 인센티브 합
+        resp.url = await libOrder.url(addr); // 주문 상세 URL
+        resp.currentStep = parseInt(await libOrder.currentStep(addr)) + 1; // 주문 현재 배송구간 인덱스 (0부터 시작 -> +1)
+        resp.trackingCount = await libOrder.trackingCount(addr); // 주문 총 배송구간 갯수
         let tracks = new Array(); // 주문의 각 배송정보를 담을 배열
         for(let idx = 0; idx < resp.trackingCount; idx++) {
-            let trackinfo = await ApiOrder.tracking(addr, idx); // 구간별 배송정보
+            let trackinfo = await libOrder.tracking(addr, idx); // 구간별 배송정보
             let elmt = new Object();
             elmt.addr = trackinfo[1]; // 담당자 주소 (화주 or 물류사)
             elmt.code = trackinfo[2]; // 배송 코드
             elmt.type = await getAddressType(elmt.addr); // 주소 타입: ('eoa' / 'company')
             if(elmt.type == 'company') {
-                elmt.name = await ApiCompany.name(elmt.addr); // 물류사 이름
+                elmt.name = await libCompany.name(elmt.addr); // 물류사 이름
             }
             elmt.incentives = trackinfo[3]; // 배송 인센티브
             elmt.status = await getOrderStatus(resp.orderAddr, idx); // 배송 상태

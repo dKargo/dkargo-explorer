@@ -24,10 +24,6 @@ const Block     = mongoose.model('ExpBlock'); // module.exports
 const TxToken   = mongoose.model('ExpTxToken'); // module.exports
 const EventLogs = mongoose.model('ExpEvtToken'); // module.exports
 
-//// APIs
-const ApiToken = require('../libs/libDkargoToken.js'); // 토큰 컨트랙트 관련 Library
-
-
 /**
  * @notice 사용법 출력함수이다.
  * @author jhhong
