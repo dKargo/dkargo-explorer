@@ -213,6 +213,9 @@ let getAccountInfo = async function(addr, page, type, service, token) {
             data.url = await libOrder.url(addr); // 주문 상세 URL
             data.currentStep = parseInt(await libOrder.currentStep(addr)) + 1; // 주문 현재 배송구간 인덱스 (0부터 시작 -> +1)
             data.trackingCount = await libOrder.trackingCount(addr); // 주문 총 배송구간 갯수
+            if(await libOrder.isComplete(addr) == true) {
+                data.trackingCount -= 1; // 배송완료된 주문일 경우 "TRACKCODE_COMPLETE"에 해당하는 트래킹정보를 제외하기 위함
+            }
             let tracks = new Array(); // 주문의 각 배송정보를 담을 배열
             for(let idx = 0; idx < data.trackingCount; idx++) {
                 let trackinfo = await libOrder.tracking(addr, idx); // 구간별 배송정보
@@ -393,6 +396,9 @@ let getOrderInfo = async function(orderid, service) {
         resp.url = await libOrder.url(addr); // 주문 상세 URL
         resp.currentStep = parseInt(await libOrder.currentStep(addr)) + 1; // 주문 현재 배송구간 인덱스 (0부터 시작 -> +1)
         resp.trackingCount = await libOrder.trackingCount(addr); // 주문 총 배송구간 갯수
+        if(await libOrder.isComplete(addr) == true) {
+            resp.trackingCount -= 1; // 배송완료된 주문일 경우 "TRACKCODE_COMPLETE"에 해당하는 트래킹정보를 제외하기 위함
+        }
         let tracks = new Array(); // 주문의 각 배송정보를 담을 배열
         for(let idx = 0; idx < resp.trackingCount; idx++) {
             let trackinfo = await libOrder.tracking(addr, idx); // 구간별 배송정보
