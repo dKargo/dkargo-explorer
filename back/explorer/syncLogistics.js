@@ -289,7 +289,7 @@ let getEventLogs = async function(receipt, table) {
  * @dev DEPLOY: DEPLOY 트랜젝션 처리
  * @dev REGISTER: 물류사 등록 트랜젝션 처리
  * @dev UNREGISTER: 물류사 등록해제 트랜젝션 처리
- * @dev PAYMENT-CONFIRM: 주문 결제확인 트랜젝션 처리
+ * @dev MARK-PAYMENT: 주문 결제확인 트랜젝션 처리
  * @dev SETTLE: 인센티브 정산 트랜젝션 처리
  * @param {Object} receipt getTransactionReceipt 결과물
  * @param {String} inputs 트랜젝션 INPUT DATA (HEXA-STRING)
@@ -334,7 +334,7 @@ let procTxService = async function(receipt, inputs, eventLogs, item) {
             case '0x35e646ea': { // "markOrderPayed(address)"
                 item.orderAddr = `0x${inputs.substring(34, 74)}`; // inputs에서 주문 컨트랙트 주소 추출
                 item.orderId = await libOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
-                item.txtype = 'PAYMENT-CONFIRM';
+                item.txtype = 'MARK-PAYMENT';
                 await TxLogistics.collection.insertOne(item);
                 break;
             }

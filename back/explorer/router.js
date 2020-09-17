@@ -157,7 +157,7 @@ let getTxType = async function(txtype) {
             return 'MANAGEMENT';
         case 'REGISTER':         // 물류사를 디카르고 플랫폼에 등록
         case 'UNREGISTER':       // 물류사를 디카르고 플랫폼에서 등록해제
-        case 'PAYMENT-CONFIRM':  // 주문이 결제되었음을 확인
+        case 'MARK-PAYMENT':     // 주문이 결제되었음을 확인
         case 'SETTLEMENT':       // 인센티브 정산
         case 'ORDER-LAUNCH':     // 물류사의 주문접수
         case 'ORDER-UPDATE':     // 물류사의 주문상태 갱신
@@ -483,7 +483,7 @@ let getTransactionInfo = async function(txhash) {
                 logistics.txtype = data.txtype; // 물류 타입
                 break;
             }
-            case 'PAYMENT-CONFIRM': {
+            case 'MARK-PAYMENT': {
                 let txdata = new Object(); // txtype별 data를 담을 오브젝트
                 txdata.orderId = data.orderId; // 주문번호
                 txdata.orderAddr = data.orderAddr; // 주문 컨트랙트 주소
