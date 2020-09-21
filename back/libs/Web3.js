@@ -110,10 +110,10 @@ module.exports.prov1SendTx = async function(privkey, rawtx) {
 module.exports.prov2SendTx = async function(privkey, rawtx) {
     try {
         if(prov2 == null || prov2 == undefined) {
-            throw new Error("invalid web3 provider!");
+            throw new Error("Invalid web3 provider!");
         }
         if(txopt2 == null || txopt2 == undefined) {
-            throw new Error("invalid chain description!");
+            throw new Error("Invalid chain description!");
         }
         const tx = new Tx(rawtx, txopt2); // Transaction 생성
         const key = Buffer.from(privkey, 'hex'); // 환경설정파일(.env)에서 Private Key 획득
@@ -130,4 +130,22 @@ module.exports.prov2SendTx = async function(privkey, rawtx) {
         Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
         return null;
     }
+}
+
+/**
+ * @notice PROV1과 PROV2가 동일한 PROVIDER인지 확인한다.
+ * @return Boolean (true: 같음, false: 다르거나 PROVIDER 오류)
+ */
+module.exports.isSameProvider = async function() {
+    try {
+        if(prov1._requestManager.provider.url == undefined || prov2._requestManager.provider.url == undefined) {
+            throw new Error("Invalid web3 provider!");
+        }
+        return (prov1._requestManager.provider.url == prov2._requestManager.provider.url)? (true) : (false);
+    } catch(error) {
+        let action = `Action: isSameProvider`;
+        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        return false;
+    }
+
 }

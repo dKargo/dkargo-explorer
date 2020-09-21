@@ -202,9 +202,9 @@ module.exports.nextCompany = async function(ca, company) {
 module.exports.nextRecipient = async function(ca, recipient) {
     try {
         let service = new web3.eth.Contract(abi, ca);
-        return await service.methods.nextCompany(recipient).call();
+        return await service.methods.nextRecipient(recipient).call();
     } catch(error) {
-        let action = `Action: nextCompany
+        let action = `Action: nextRecipient
         - [ca]:        [${ca}],
         - [recipient]: [${recipient}]`;
         Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
