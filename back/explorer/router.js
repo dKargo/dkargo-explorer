@@ -215,6 +215,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
             data.trackingCount = await libOrder.trackingCount(addr); // 주문 총 배송구간 갯수
             if(await libOrder.isComplete(addr) == true) {
                 data.trackingCount -= 1; // 배송완료된 주문일 경우 "TRACKCODE_COMPLETE"에 해당하는 트래킹정보를 제외하기 위함
+                data.currentStep   -= 1; // currentStep과 trackingCount의 sync를 맞추기 위함
             }
             let tracks = new Array(); // 주문의 각 배송정보를 담을 배열
             for(let idx = 0; idx < data.trackingCount; idx++) {
@@ -398,6 +399,7 @@ let getOrderInfo = async function(orderid, service) {
         resp.trackingCount = await libOrder.trackingCount(addr); // 주문 총 배송구간 갯수
         if(await libOrder.isComplete(addr) == true) {
             resp.trackingCount -= 1; // 배송완료된 주문일 경우 "TRACKCODE_COMPLETE"에 해당하는 트래킹정보를 제외하기 위함
+            resp.currentStep   -= 1; // currentStep과 trackingCount의 sync를 맞추기 위함
         }
         let tracks = new Array(); // 주문의 각 배송정보를 담을 배열
         for(let idx = 0; idx < resp.trackingCount; idx++) {
