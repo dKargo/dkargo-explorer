@@ -233,7 +233,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
             }
             data.tracking = tracks;
             data.logisticsCount = await TxLogistics.countDocuments({orderAddr: addr}); // 주문과 관련된 Tx 총 갯수
-            let txs = await TxLogistics.find({orderAddr: addr}); // 주문과 관련된 Tx Details (txs.length == data.logisticsCount)
+            let txs = await TxLogistics.find({orderAddr: addr}).sort('-blockNumber').lean(true).limit(data.logisticsCount);
             let logistics = new Array(); // 주문과 관련된 각 Tx 정보들을 담을 배열
             for(let idx = 0; idx < data.logisticsCount; idx++) {
                 let elmt = new Object();
@@ -275,10 +275,12 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 if(data.txnsCnt < start) {
                     throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${data.txnsCnt}]`);
                 }
-                let end = (data.txnsCnt >= start + process.env.MAXELMT_PERPAGE)? (start + process.env.MAXELMT_PERPAGE) : (data.txnsCnt);
-                let lists = await TxLogistics.find({companyAddr: addr});
+                let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+                let end = (data.txnsCnt >= pageUnit)? (pageUnit) : (data.txnsCnt);
+                let total = end-start;
+                let lists = await TxLogistics.find({companyAddr: addr}).sort('-blockNumber').lean(true).limit(total);
                 let txns = new Array(); // TX 요약정보를 담을 배열
-                for(let idx = start; idx < end; idx++) {
+                for(let idx = 0; idx < total; idx++) {
                     let elmt = new Object();
                     elmt.txhash = lists[idx].hash; // 트랜젝션 해시
                     elmt.status = lists[idx].status; // 트랜젝션 상태 (success / fail / pending)
@@ -293,10 +295,12 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 if(data.ordersCnt < start) {
                     throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${data.ordersCnt}]`);
                 }
-                let end = (data.ordersCnt >= start + process.env.MAXELMT_PERPAGE)? (start + process.env.MAXELMT_PERPAGE) : (data.ordersCnt);
-                let lists = await OrderTrack.find({companyAddr: addr}); // 물류사 담당 주문-구간 Lists
+                let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+                let end = (data.ordersCnt >= pageUnit)? (pageUnit) : (data.ordersCnt);
+                let total = end-start;
+                let lists = await OrderTrack.find({companyAddr: addr}).sort('-blockNumber').lean(true).limit(total);
                 let orders = new Array(); // 물류사 담당 주문-구간을 담을 배열
-                for(let idx = start; idx < end; idx++) {
+                for(let idx = 0; idx < total; idx++) {
                     let elmt = new Object();
                     elmt.orderAddr = lists[idx].orderAddr; // 주문 컨트랙트 주소
                     elmt.orderId = lists[idx].orderId; // 주문 번호
@@ -330,10 +334,12 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 if(data.logisticsCnt < start) {
                     throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${data.logisticsCnt}]`);
                 }
-                let end = (data.logisticsCnt >= start + process.env.MAXELMT_PERPAGE)? (start + process.env.MAXELMT_PERPAGE) : (data.logisticsCnt);
-                let lists = await TxLogistics.find({from: addr});
+                let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+                let end = (data.logisticsCnt >= pageUnit)? (pageUnit) : (data.logisticsCnt);
+                let total = end-start;
+                let lists = await TxLogistics.find({from: addr}).sort('-blockNumber').lean(true).limit(total);
                 let logistics = new Array(); // TX 요약정보를 담을 배열
-                for(let idx = start; idx < end; idx++) {
+                for(let idx = 0; idx < total; idx++) {
                     let elmt = new Object();
                     elmt.txhash = lists[idx].hash; // 트랜젝션 해시
                     elmt.status = lists[idx].status; // 트랜젝션 상태 (success / fail / pending)
@@ -348,10 +354,12 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 if(data.tokensCnt < start) {
                     throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${data.tokensCnt}]`);
                 }
-                let end = (data.tokensCnt >= start + process.env.MAXELMT_PERPAGE)? (start + process.env.MAXELMT_PERPAGE) : (data.tokensCnt);
-                let lists = await TxToken.find({$or: [{from: addr}, {origin: addr}, {dest: addr}]});
+                let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+                let end = (data.tokensCnt >= start + pageUnit)? (pageUnit) : (data.tokensCnt);
+                let total = end-start;
+                let lists = await TxToken.find({$or: [{from: addr}, {origin: addr}, {dest: addr}]}).sort('-blockNumber').lean(true).limit(total);
                 let tokens = new Array(); // TX 요약정보를 담을 배열
-                for(let idx = start; idx < end; idx++) {
+                for(let idx = 0; idx < total; idx++) {
                     let elmt = new Object();
                     elmt.txhash = lists[idx].hash; // 트랜젝션 해시
                     elmt.time = lists[idx].timestamp; // 트랜젝션 생성시각
@@ -417,7 +425,7 @@ let getOrderInfo = async function(orderid, service) {
         }
         resp.tracking = tracks;
         resp.logisticsCount = await TxLogistics.countDocuments({orderAddr: addr}); // 주문과 관련된 Tx 총 갯수
-        let txs = await TxLogistics.find({orderAddr: addr}); // 주문과 관련된 Tx Details (txs.length == resp.logisticsCount)
+        let txs = await TxLogistics.find({orderAddr: addr}).sort('-blockNumber').lean(true).limit(resp.logisticsCount);
         let logistics = new Array(); // 주문과 관련된 각 Tx 정보들을 담을 배열
         for(let idx = 0; idx < resp.logisticsCount; idx++) {
             let elmt = new Object();

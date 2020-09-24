@@ -519,6 +519,9 @@ let procTxOrder = async function(receipt, inputs, eventLogs, item) {
                 item.orderId = await libOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
                 item.txtype = 'SUBMIT';
                 await TxLogistics.collection.insertOne(item);
+                if(await OrderTrack.countDocuments({orderAddr: item.orderAddr}) > 0) {
+                    await OrderTrack.collection.updateMany({orderAddr: item.orderAddr}, {$set: {orderId: item.orderId}});
+                }
                 break;
             }
             case '0x252498a2': { // "setUrl(string)"
