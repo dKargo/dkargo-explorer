@@ -5,19 +5,9 @@
  */
 
 //// COMMON
-const colors = require('colors/safe'); // 콘솔 Color 출력
-const path   = require('path'); // .env 경로 추출을 위함
-
-//// LOGs
-const Log = require('../libs/libLog.js').Log; // 로그 출력
-
-//// ABIs
-const abiPrefix = require('../build/contracts/DkargoPrefix.json').abi; // 컨트랙트 ABI
-const abiERC165 = require('../build/contracts/ERC165.json').abi; // 컨트랙트 ABI
-
-//// DOTENV
-require('dotenv').config({ path: path.join(__dirname, '../.env') }); // 지정된 경로의 환경변수 사용 (.env 파일 참조)
-
+const path = require('path'); // .env 경로 추출을 위함
+//// CONSTANTS
+const ZEROADDR  = require('../libs/libCommon.js').ZEROADDR; // ZERO-ADDRESS 상수
 //// DBs
 require('./db.js'); // for mongoose schema import
 const mongoose     = require('mongoose');
@@ -26,16 +16,22 @@ const TxToken      = mongoose.model('ExpTxToken'); // module.exports
 const OrderTrack   = mongoose.model('ExpOrderTrack'); // module.exports
 const EvtLogistics = mongoose.model('ExpEvtLogistics'); // module.exports
 const EvtToken     = mongoose.model('ExpEvtToken'); // module.exports
-
+//// WEB3
+const web3 = require('../libs/Web3.js').prov2; // 물류 관련 provider
+//// LOGs
+const Log = require('../libs/libLog.js').Log; // 로그 출력
+//// LOG COLOR (console)
+const RED = require('../libs/libLog.js').consoleRed; // 콘솔 컬러 출력: RED
+//// GLOBALs
+const abiPrefix = require('../build/contracts/DkargoPrefix.json').abi; // 컨트랙트 ABI
+const abiERC165 = require('../build/contracts/ERC165.json').abi; // 컨트랙트 ABI
+//// DOTENV
+require('dotenv').config({ path: path.join(__dirname, '../.env') }); // 지정된 경로의 환경변수 사용 (.env 파일 참조)
 //// APIs & LIBs
 const libService = require('../libs/libDkargoService.js'); // 서비스 컨트랙트 관련 Library
 const libCompany = require('../libs/libDkargoCompany.js'); // 물류사 컨트랙트 관련 Library
 const libOrder   = require('../libs/libDkargoOrder.js'); // 주문 컨트랙트 관련 Library
 const libToken   = require('../libs/libDkargoToken.js'); // 토큰 컨트랙트 관련 Library
-const ZEROADDR   = require('../libs/libCommon.js').ZEROADDR; // ZERO-ADDRESS 상수
-
-//// WEB3
-const web3 = require('../libs/Web3.js').prov2; // 물류 관련 provider
 
 /**
  * @notice ca가 디카르고 컨트랙트 증명을 위한 인터페이스를 지원하는지 확인한다.
@@ -55,7 +51,7 @@ let isDkargoContract = async function(ca) {
         return true;
     } catch(error) {
         let action = `Action: isDkargoContract`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return false;
     }
 }
@@ -72,7 +68,7 @@ let getDkargoPrefix = async function(ca) {
         return await DkargoPrefix.methods.getDkargoPrefix().call();
     } catch(error) {
         let action = `Action: getDkargoPrefix`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return false;
     }
 }
@@ -104,7 +100,7 @@ let getAddressType = async function(addr) {
         return type;
     } catch(error) {
         let action = `Action: getAddressType`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return null;
     }
 }
@@ -134,7 +130,7 @@ let getOrderStatus = async function(addr, transportId) {
         }
     } catch(error) {
         let action = `Action: getOrderStatus`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return 'error';
     }
 }
@@ -172,7 +168,7 @@ let getTxType = async function(txtype) {
         }
     } catch(error) {
         let action = `Action: getTxType`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return null;
     }
 }
@@ -378,7 +374,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
         }
     } catch(error) {
         let action = `Action: getAccountInfo`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return 'none';
     }
 }
@@ -440,7 +436,7 @@ let getOrderInfo = async function(orderid, service) {
         return JSON.stringify(resp);
     } catch(error) {
         let action = `Action: getOrderInfo`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return 'none';
     }
 }
@@ -770,7 +766,7 @@ let getTransactionInfo = async function(txhash) {
         return JSON.stringify(resp);
     } catch(error) {
         let action = `Action: getTransactionInfo`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return 'none';
     }
 }

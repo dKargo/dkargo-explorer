@@ -4,25 +4,27 @@
  * @author jhhong
  */
 
-//// COMMON
-const colors = require('colors/safe'); // 콘솔 Color 출력
-const web3   = require('../libs/Web3.js').prov2; // web3 provider (물류 관련 contract는 privnet에 올라간다 (prov2))
-
-//// LOGs
-const initLog = require('../libs/libLog.js').initLog; // 로그 초기화 함수 (winston)
-const Log     = require('../libs/libLog.js').Log; // 로그 출력
-
-//// ABIs
-const abiPrefix = require('../build/contracts/DkargoPrefix.json').abi; // 컨트랙트 ABI (DkargoPrefix)
-const abiERC165 = require('../build/contracts/ERC165.json').abi; // 컨트랙트 ABI (ERC165)
-const abiToken  = require('../build/contracts/DkargoToken.json').abi; // 컨트랙트 ABI (DkargoToken)
-
+//// WEB3
+const web3 = require('../libs/Web3.js').prov2; // web3 provider (물류 관련 contract는 privnet에 올라간다 (prov2))
 //// DBs
 require('./db.js'); // for mongoose schema import
 const mongoose  = require('mongoose');
 const Block     = mongoose.model('ExpBlock'); // module.exports
 const TxToken   = mongoose.model('ExpTxToken'); // module.exports
 const EventLogs = mongoose.model('ExpEvtToken'); // module.exports
+//// LOGs
+const initLog       = require('../libs/libLog.js').initLog; // 로그 초기화 함수 (winston)
+const enableLogFile = require('../libs/libLog.js').enableLogFile; // 로그 파일 출력기능 추가 함수
+const Log           = require('../libs/libLog.js').Log; // 로그 출력
+//// LOG COLOR (console)
+const RED   = require('../libs/libLog.js').consoleRed; // 콘솔 컬러 출력: RED
+const GREEN = require('../libs/libLog.js').consoleGreen; // 콘솔 컬러 출력: GREEN
+const BLUE  = require('../libs/libLog.js').consoleBlue; // 콘솔 컬러 출력: BLUE
+const GRAY  = require('../libs/libLog.js').consoleGray; // 콘솔 컬러 출력: GRAY
+//// GLOBALs
+const abiPrefix = require('../build/contracts/DkargoPrefix.json').abi; // 컨트랙트 ABI (DkargoPrefix)
+const abiERC165 = require('../build/contracts/ERC165.json').abi; // 컨트랙트 ABI (ERC165)
+const abiToken  = require('../build/contracts/DkargoToken.json').abi; // 컨트랙트 ABI (DkargoToken)
 
 /**
  * @notice 사용법 출력함수이다.
@@ -31,7 +33,7 @@ const EventLogs = mongoose.model('ExpEvtToken'); // module.exports
 function usage() {
     const fullpath = __filename.split('/');
     const filename = fullpath[fullpath.length - 1];
-    console.log(colors.green("Usage:"));
+    console.log(GREEN("Usage:"));
     console.log(`> node ${filename} [argv1] [argv2]`);
     console.log(`....[argv1]: Token Address`);
     console.log(`....[argv2]: Start Block`);
@@ -55,7 +57,7 @@ let isDkargoContract = async function(ca) {
         return true;
     } catch(error) {
         let action = `Action: isDkargoContract`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return false;
     }
 }
@@ -72,7 +74,7 @@ let getDkargoPrefix = async function(ca) {
         return await DkargoPrefix.methods.getDkargoPrefix().call();
     } catch(error) {
         let action = `Action: getDkargoPrefix`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return false;
     }
 }
@@ -90,7 +92,7 @@ let checkValidGenesis = async function(addr, genesis) {
         if(data == null) {
             throw new Error(`null data received!`);
         }
-        Log('DEBUG', `block: [${colors.green(data.number)}] txnum: [${colors.green(data.transactions.length)}]`);
+        Log('DEBUG', `block: [${GREEN(data.number)}] txnum: [${GREEN(data.transactions.length)}]`);
         for(d in data.transactions) {
             const txdata = data.transactions[d];
             const receipt = await web3.eth.getTransactionReceipt(txdata.hash);
@@ -107,7 +109,7 @@ let checkValidGenesis = async function(addr, genesis) {
         return false;
     } catch(error) {
         let action = `Action: checkValidGenesis`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return false;
     }
 }
@@ -136,9 +138,9 @@ let getStartBlock = async function(addr, defaultblock) {
                 let ret = await TxToken.deleteMany({blocknumber: latest.blockNumber});
                 if(ret != null) {
                     let action = `TxToken.deleteMany done!\n` +
-                    `- [Matched]:      [${colors.green(ret.n)}],\n` +
-                    `- [Successful]:   [${colors.green(ret.ok)}],\n` +
-                    `- [DeletedCount]: [${colors.green(ret.deletedCount)}]`;
+                    `- [Matched]:      [${GREEN(ret.n)}],\n` +
+                    `- [Successful]:   [${GREEN(ret.ok)}],\n` +
+                    `- [DeletedCount]: [${GREEN(ret.deletedCount)}]`;
                     Log('DEBUG', `${action}`);
                 }
                 return latest.blockNumber;
@@ -148,7 +150,7 @@ let getStartBlock = async function(addr, defaultblock) {
         }
     } catch(error) {
         let action = `Action: getStartBlock`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return 0;
     }
 }
@@ -178,7 +180,7 @@ let createEventParseTable = async function() {
         }
         return (ret.length > 0)? (ret) : (null);
     } catch(error) {
-        Log('ERROR', `${colors.red(error)}`);
+        Log('ERROR', `${RED(error)}`);
         return null;
     }
 }
@@ -233,7 +235,7 @@ let getEventLogs = async function(receipt, table) {
         }
         return eventLogs;
     } catch(error) {
-        Log('ERROR', `${colors.red(error)}`);
+        Log('ERROR', `${RED(error)}`);
         return null;
     }
 }
@@ -301,7 +303,7 @@ let procTxToken = async function(receipt, inputs, eventLogs, item) {
             }
         }
     } catch(error) {
-        Log('ERROR', `${colors.red(error)}`);
+        Log('ERROR', `${RED(error)}`);
     }
 }
 
@@ -342,7 +344,7 @@ let parseDkargoTxns = async function(txdata, table, timestamp) {
             }
         }
     } catch(error) {
-        Log('ERROR', `${colors.red(error)}`);
+        Log('ERROR', `${RED(error)}`);
     }
 }
 
@@ -366,7 +368,7 @@ let syncPastBlocks = async function(startblock, table) {
                 await Block.collection.updateOne({nettype: 'token'}, {$set: {blockNumber: data.number}});
             }
             let latest = await Block.findOne({nettype: 'token'});
-            Log('DEBUG', `New Block Detected: BLOCK:[${colors.blue(latest.blockNumber)}]`);
+            Log('DEBUG', `New Block Detected: BLOCK:[${BLUE(latest.blockNumber)}]`);
             const timestamp = data.timestamp;
             for(idx in data.transactions) {
                 await parseDkargoTxns(data.transactions[idx], table, timestamp);
@@ -375,7 +377,7 @@ let syncPastBlocks = async function(startblock, table) {
         }
         Log('INFO', `START BLOCK:[${curblock}]`);
     } catch(error) {
-        Log('ERROR', `${colors.red(error)}`);
+        Log('ERROR', `${RED(error)}`);
     }
 }
 
@@ -385,7 +387,8 @@ let syncPastBlocks = async function(startblock, table) {
  */
 let RunProc = async function() {
     try {
-        initLog(); // 로그 초기화
+        await initLog(); // 로그 초기화
+        await enableLogFile(`explorer/syncToken`);
         if(process.argv.length != 4) {
             throw new Error("Invalid Parameters!");
         }
@@ -393,7 +396,7 @@ let RunProc = async function() {
         if(startblock == 0) {
             throw new Error(`Need to reset DB! Exit!`);
         }
-        Log('DEBUG', colors.gray(`Start Monitoring from BlockNumber:[${startblock}]......`));
+        Log('DEBUG', GRAY(`Start Monitoring from BlockNumber:[${startblock}]......`));
         let table = await createEventParseTable();
         if (table == null) {
             throw new Error("\"EVENT TABLE\" create Failed!");
@@ -406,7 +409,7 @@ let RunProc = async function() {
          */
         web3.eth.subscribe('newBlockHeaders', async function(error) {
             if(error != null) {
-                Log('ERROR', colors.red(`ERROR: ${error}`));
+                Log('ERROR', RED(`ERROR: ${error}`));
             }
         }).on('data', async (header) => {
             let data = await web3.eth.getBlock(header.hash, true);
@@ -419,16 +422,16 @@ let RunProc = async function() {
                 await Block.collection.updateOne({nettype: 'token'}, {$set: {blockNumber: data.number}});
             }
             let latest = await Block.findOne();
-            Log('DEBUG', `New Block Detected: BLOCK:[${colors.blue(latest.blockNumber)}]`);
+            Log('DEBUG', `New Block Detected: BLOCK:[${BLUE(latest.blockNumber)}]`);
             const timestamp = data.timestamp;
             for(idx in data.transactions) {
                 await parseDkargoTxns(data.transactions[idx], table, timestamp);
             }
         }).on('error', async (log) => {
-            Log('ERROR', colors.red(`ERROR occured: ${log}`));
+            Log('ERROR', RED(`ERROR occured: ${log}`));
         });
      } catch(error) {
-        Log('ERROR', `${colors.red(error)}`);
+        Log('ERROR', `${RED(error)}`);
         usage();
         process.exit(1);
      }

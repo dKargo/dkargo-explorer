@@ -5,12 +5,17 @@
  * @author jhhong
  */
 
-const colors = require('colors/safe'); // 콘솔 Color 출력
-const web3 = require('./Web3.js').prov2; // web3 provider (order는 privnet(chain2)에 deploy됨)
-const abi = require('../build/contracts/DkargoCompany.json').abi; // 컨트랙트 ABI
+//// WEB3
+const web3   = require('./Web3.js').prov2; // web3 provider (order는 privnet(chain2)에 deploy됨)
+const sendTx = require('./Web3.js').prov2SendTx; // 트랜젝션을 생성하여 블록체인에 전송하는 함수
+//// GLOBALs
+const abi      = require('../build/contracts/DkargoCompany.json').abi; // 컨트랙트 ABI
 const bytecode = require('../build/contracts/DkargoCompany.json').bytecode; // 컨트랙트 bytecode
+//// LOGs
 const Log = require('./libLog.js').Log; // 로그 출력
-const sendTransaction = require('./Web3.js').prov2SendTx; // 트랜젝션을 생성하여 블록체인에 전송하는 함수
+//// LOG COLOR (console)
+const RED  = require('./libLog.js').consoleRed; // 콘솔 컬러 출력: RED
+const CYAN = require('./libLog.js').consoleCyan; // 콘솔 컬러 출력: CYAN
 
 /**
  * @notice 주문의 정상 배송완료 여부를 반환한다.
@@ -25,7 +30,7 @@ module.exports.isComplete = async function(ca) {
     } catch(error) {
         let action = `Action: isComplete
         - [ca]: [${ca}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
     }
 }
 
@@ -42,7 +47,7 @@ module.exports.firstOrder = async function(ca) {
     } catch(error) {
         let action = `Action: firstOrder
         - [ca]: [${ca}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
     }
 }
 
@@ -59,7 +64,7 @@ module.exports.lastOrder = async function(ca) {
     } catch(error) {
         let action = `Action: lastOrder
         - [ca]: [${ca}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
     }
 }
 
@@ -76,7 +81,7 @@ module.exports.name = async function(ca) {
     } catch(error) {
         let action = `Action: name
         - [ca]: [${ca}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
     }
 }
 
@@ -95,7 +100,7 @@ module.exports.nextOrder = async function(ca, order) {
         let action = `Action: nextOrder
         - [ca]:    [${ca}],
         - [order]: [${order}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
     }
 }
 
@@ -114,7 +119,7 @@ module.exports.prevOrder = async function(ca, order) {
         let action = `Action: prevOrder
         - [ca]:    [${ca}],
         - [order]: [${order}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
     }
 }
 
@@ -131,7 +136,7 @@ module.exports.recipient = async function(ca) {
     } catch(error) {
         let action = `Action: recipient
         - [ca]: [${ca}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
     }
 }
 
@@ -148,7 +153,7 @@ module.exports.service = async function(ca) {
     } catch(error) {
         let action = `Action: service
         - [ca]: [${ca}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
     }
 }
 
@@ -165,7 +170,7 @@ module.exports.url = async function(ca) {
     } catch(error) {
         let action = `Action: url
         - [ca]: [${ca}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
     }
 }
 
@@ -190,9 +195,9 @@ module.exports.launch = async function(ca, cmder, privkey, order, transportid, n
             gasprice = await web3.eth.getGasPrice();
         }
         let gphex = `0x${parseInt(gasprice).toString(16)}`;
-        Log('DEBUG', `GAS (launch) = [${colors.cyan(gas)}], GAS-PRICE = [${colors.cyan(gasprice)}]`);
+        Log('DEBUG', `GAS (launch) = [${CYAN(gas)}], GAS-PRICE = [${CYAN(gasprice)}]`);
         const rawtx = {to: ca, nonce: web3.utils.toHex(nonce), gas: gas, gasPrice: gphex, data: data};
-        let receipt = await sendTransaction(privkey, rawtx);
+        let receipt = await sendTx(privkey, rawtx);
         return receipt.transactionHash;
     } catch(error) {
         let action = `Action: launch
@@ -200,7 +205,7 @@ module.exports.launch = async function(ca, cmder, privkey, order, transportid, n
         - [cmder]: [${cmder}],
         - [order]: [${order}],
         - [nonce]: [${nonce}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return null;
     }
 }
@@ -227,9 +232,9 @@ module.exports.updateOrderCode = async function(ca, cmder, privkey, order, trans
             gasprice = await web3.eth.getGasPrice();
         }
         let gphex = `0x${parseInt(gasprice).toString(16)}`;
-        Log('DEBUG', `GAS (updateOrderCode) = [${colors.cyan(gas)}], GAS-PRICE = [${colors.cyan(gasprice)}]`);
+        Log('DEBUG', `GAS (updateOrderCode) = [${CYAN(gas)}], GAS-PRICE = [${CYAN(gasprice)}]`);
         const rawtx = {to: ca, nonce: web3.utils.toHex(nonce), gas: gas, gasPrice: gphex, data: data};
-        let receipt = await sendTransaction(privkey, rawtx);
+        let receipt = await sendTx(privkey, rawtx);
         return receipt.transactionHash;
     } catch(error) {
         let action = `Action: updateOrderCode
@@ -239,7 +244,7 @@ module.exports.updateOrderCode = async function(ca, cmder, privkey, order, trans
         - [transportid]: [${transportid}],
         - [code]:        [${code}],
         - [nonce]:       [${nonce}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return null;
     }
 }
@@ -265,9 +270,9 @@ module.exports.addOperator = async function(ca, cmder, privkey, operator, nonce,
             gasprice = await web3.eth.getGasPrice();
         }
         let gphex = `0x${parseInt(gasprice).toString(16)}`;
-        Log('DEBUG', `GAS (addOperator) = [${colors.cyan(gas)}], GAS-PRICE = [${colors.cyan(gasprice)}]`);
+        Log('DEBUG', `GAS (addOperator) = [${CYAN(gas)}], GAS-PRICE = [${CYAN(gasprice)}]`);
         const rawtx = {to: ca, nonce: web3.utils.toHex(nonce), gas: gas, gasPrice: gphex, data: data};
-        let receipt = await sendTransaction(privkey, rawtx);
+        let receipt = await sendTx(privkey, rawtx);
         return receipt.transactionHash;
     } catch(error) {
         let action = `Action: addOperator
@@ -275,7 +280,7 @@ module.exports.addOperator = async function(ca, cmder, privkey, operator, nonce,
         - [cmder]:    [${cmder}],
         - [operator]: [${operator}],
         - [nonce]:    [${nonce}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return null;
     }
 }
@@ -301,9 +306,9 @@ module.exports.removeOperator = async function(ca, cmder, privkey, operator, non
             gasprice = await web3.eth.getGasPrice();
         }
         let gphex = `0x${parseInt(gasprice).toString(16)}`;
-        Log('DEBUG', `GAS (removeOperator) = [${colors.cyan(gas)}], GAS-PRICE = [${colors.cyan(gasprice)}]`);
+        Log('DEBUG', `GAS (removeOperator) = [${CYAN(gas)}], GAS-PRICE = [${CYAN(gasprice)}]`);
         const rawtx = {to: ca, nonce: web3.utils.toHex(nonce), gas: gas, gasPrice: gphex, data: data};
-        let receipt = await sendTransaction(privkey, rawtx);
+        let receipt = await sendTx(privkey, rawtx);
         return receipt.transactionHash;
     } catch(error) {
         let action = `Action: removeOperator
@@ -311,7 +316,7 @@ module.exports.removeOperator = async function(ca, cmder, privkey, operator, non
         - [cmder]:    [${cmder}],
         - [operator]: [${operator}],
         - [nonce]:    [${nonce}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return null;
     }
 }
@@ -336,9 +341,9 @@ module.exports.setName = async function(ca, cmder, privkey, name, nonce, gaspric
             gasprice = await web3.eth.getGasPrice();
         }
         let gphex = `0x${parseInt(gasprice).toString(16)}`;
-        Log('DEBUG', `GAS (setName) = [${colors.cyan(gas)}], GAS-PRICE = [${colors.cyan(gasprice)}]`);
+        Log('DEBUG', `GAS (setName) = [${CYAN(gas)}], GAS-PRICE = [${CYAN(gasprice)}]`);
         const rawtx = {to: ca, nonce: web3.utils.toHex(nonce), gas: gas, gasPrice: gphex, data: data};
-        let receipt = await sendTransaction(privkey, rawtx);
+        let receipt = await sendTx(privkey, rawtx);
         return receipt.transactionHash;
     } catch(error) {
         let action = `Action: setName
@@ -346,7 +351,7 @@ module.exports.setName = async function(ca, cmder, privkey, name, nonce, gaspric
         - [cmder]: [${cmder}],
         - [order]: [${name}],
         - [nonce]: [${nonce}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return null;
     }
 }
@@ -371,9 +376,9 @@ module.exports.setUrl = async function(ca, cmder, privkey, url, nonce, gasprice 
             gasprice = await web3.eth.getGasPrice();
         }
         let gphex = `0x${parseInt(gasprice).toString(16)}`;
-        Log('DEBUG', `GAS (setUrl) = [${colors.cyan(gas)}], GAS-PRICE = [${colors.cyan(gasprice)}]`);
+        Log('DEBUG', `GAS (setUrl) = [${CYAN(gas)}], GAS-PRICE = [${CYAN(gasprice)}]`);
         const rawtx = {to: ca, nonce: web3.utils.toHex(nonce), gas: gas, gasPrice: gphex, data: data};
-        let receipt = await sendTransaction(privkey, rawtx);
+        let receipt = await sendTx(privkey, rawtx);
         return receipt.transactionHash;
     } catch(error) {
         let action = `Action: setUrl
@@ -381,7 +386,7 @@ module.exports.setUrl = async function(ca, cmder, privkey, url, nonce, gasprice 
         - [cmder]: [${cmder}],
         - [order]: [${url}],
         - [nonce]: [${nonce}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return null;
     }
 }
@@ -406,9 +411,9 @@ module.exports.setRecipient = async function(ca, cmder, privkey, recipient, nonc
             gasprice = await web3.eth.getGasPrice();
         }
         let gphex = `0x${parseInt(gasprice).toString(16)}`;
-        Log('DEBUG', `GAS (setRecipient) = [${colors.cyan(gas)}], GAS-PRICE = [${colors.cyan(gasprice)}]`);
+        Log('DEBUG', `GAS (setRecipient) = [${CYAN(gas)}], GAS-PRICE = [${CYAN(gasprice)}]`);
         const rawtx = {to: ca, nonce: web3.utils.toHex(nonce), gas: gas, gasPrice: gphex, data: data};
-        let receipt = await sendTransaction(privkey, rawtx);
+        let receipt = await sendTx(privkey, rawtx);
         return receipt.transactionHash;
     } catch(error) {
         let action = `Action: setRecipient
@@ -416,7 +421,7 @@ module.exports.setRecipient = async function(ca, cmder, privkey, recipient, nonc
         - [cmder]: [${cmder}],
         - [order]: [${recipient}],
         - [nonce]: [${nonce}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return null;
     }
 }
@@ -443,9 +448,9 @@ module.exports.setRecipient = async function(ca, cmder, privkey, recipient, nonc
             gasprice = await web3.eth.getGasPrice();
         }
         let gphex = `0x${parseInt(gasprice).toString(16)}`;
-        Log('DEBUG', `GAS (deployCompany) = [${colors.cyan(gas)}], GAS-PRICE = [${colors.cyan(gasprice)}]`);
+        Log('DEBUG', `GAS (deployCompany) = [${CYAN(gas)}], GAS-PRICE = [${CYAN(gasprice)}]`);
         const rawtx = {nonce: web3.utils.toHex(nonce), gas: gas, gasPrice: gphex, data: data};
-        let receipt = await sendTransaction(privkey, rawtx);
+        let receipt = await sendTx(privkey, rawtx);
         return [receipt.contractAddress, receipt.blockNumber];
     } catch(error) {
         let action = `Action: deployCompany
@@ -455,7 +460,7 @@ module.exports.setRecipient = async function(ca, cmder, privkey, recipient, nonc
         - [recipient]: [${recipient}],
         - [service]:   [${service}],
         - [nonce]:     [${nonce}]`;
-        Log('ERROR', `exception occured!:\n${action}\n${colors.red(error.stack)}`);
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return null;
     }
 }
