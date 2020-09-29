@@ -570,6 +570,9 @@ let parseDkargoTxns = async function(txdata, table, timestamp) {
                     let item = new TxLogistics(); // Schema Object 생성
                     item.hash = txdata.hash.toLowerCase();
                     item.from = txdata.from.toLowerCase();
+                    if(txdata.to !== null) {
+                        item.to = txdata.to.toLowerCase(); // Bugfix: Blockchain Info에 To 넣음
+                    }
                     item.blockNumber = txdata.blockNumber;
                     item.gas = txdata.gas;
                     item.gasUsed = receipt.gasUsed;
