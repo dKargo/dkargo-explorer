@@ -33,6 +33,7 @@ const ExpTxLogistics = new mongoose.Schema({
   'orderId':      String, // 주문번호 (물류정보)
   'param01':      String, // 부가적인 표현 데이터1 (OPTIONAL)
   'param02':      String, // 부가적인 표현 데이터2 (OPTIONAL)
+  'recipient':    String, // 인센티브 정산 수취인 주소
   'serviceAddr':  String, // 서비스 컨트랙트 주소 (물류정보)
   'status':       String, // 트랜젝션 상태 (Success/Failed/Pending)
   'timestamp':    Number, // 트랜젝션 생성 timestamp

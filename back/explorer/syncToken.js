@@ -371,7 +371,7 @@ let syncPastBlocks = async function(startblock, table) {
                 await Block.collection.updateOne({nettype: 'token'}, {$set: {blockNumber: data.number}});
             }
             let latest = await Block.findOne({nettype: 'token'});
-            Log('DEBUG', `New Block Detected: BLOCK:[${BLUE(latest.blockNumber)}]`);
+            //Log('DEBUG', `New Block Detected: BLOCK:[${BLUE(latest.blockNumber)}]`);
             const timestamp = data.timestamp;
             for(idx in data.transactions) {
                 await parseDkargoTxns(data.transactions[idx], table, timestamp);
@@ -425,7 +425,7 @@ let RunProc = async function() {
                 await Block.collection.updateOne({nettype: 'token'}, {$set: {blockNumber: data.number}});
             }
             let latest = await Block.findOne();
-            Log('DEBUG', `New Block Detected: BLOCK:[${BLUE(latest.blockNumber)}]`);
+            //Log('DEBUG', `New Block Detected: BLOCK:[${BLUE(latest.blockNumber)}]`);
             const timestamp = data.timestamp;
             for(idx in data.transactions) {
                 await parseDkargoTxns(data.transactions[idx], table, timestamp);

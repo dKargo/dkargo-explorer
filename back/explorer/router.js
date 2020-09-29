@@ -322,7 +322,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
             }
             let data = new Object();
             data.balance = await libToken.balanceOf(token, addr); // 토큰 보유량
-            data.logisticsCnt = await TxLogistics.countDocuments({from: addr}); // addr과 관련있는 TX 총갯수
+            data.logisticsCnt = await TxLogistics.countDocuments({$or: [{from: addr}, {recipient: addr}]}); // addr과 관련있는 TX 총갯수
             data.tokensCnt = await TxToken.countDocuments({$or: [{from: addr}, {origin: addr}, {dest: addr}]}); // addr과 관련있는 TX 총갯수
             data.datatype = curtype; // 요청타입: 계정의 물류트랜젝션?, 토큰트랜젝션?
             if(curtype == 'logistics') {
@@ -333,7 +333,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
                 let end = (data.logisticsCnt >= pageUnit)? (pageUnit) : (data.logisticsCnt);
                 let total = end-start;
-                let lists = await TxLogistics.find({from: addr}).sort('-blockNumber').lean(true).limit(total);
+                let lists = await TxLogistics.find({$or: [{from: addr}, {recipient: addr}]}).sort('-blockNumber').lean(true).limit(total);
                 let logistics = new Array(); // TX 요약정보를 담을 배열
                 for(let idx = 0; idx < total; idx++) {
                     let elmt = new Object();
@@ -477,7 +477,6 @@ let getTransactionInfo = async function(txhash) {
                 txdata.transportId = data.transportId; // 운송번호
                 txdata.companyName = data.companyName; // 물류사 이름
                 txdata.companyAddr = data.companyAddr; // 물류사 컨트랙트 주소
-                txdata.creator = data.creator; // 컨트랙트 소유자 주소
                 logistics.txdata = txdata;
                 logistics.txtype = data.txtype; // 물류 타입
                 break;
@@ -490,7 +489,6 @@ let getTransactionInfo = async function(txhash) {
                 txdata.code = data.code; // 배송코드
                 txdata.companyName = data.companyName; // 물류사 이름
                 txdata.companyAddr = data.companyAddr; // 물류사 컨트랙트 주소
-                txdata.creator = data.creator; // 컨트랙트 소유자 주소
                 logistics.txdata = txdata;
                 logistics.txtype = data.txtype; // 물류 타입
                 break;
@@ -499,7 +497,6 @@ let getTransactionInfo = async function(txhash) {
                 let txdata = new Object(); // txtype별 data를 담을 오브젝트
                 txdata.orderId = data.orderId; // 주문번호
                 txdata.orderAddr = data.orderAddr; // 주문 컨트랙트 주소
-                txdata.creator = data.creator; // 컨트랙트 소유자 주소
                 logistics.txdata = txdata;
                 logistics.txtype = data.txtype; // 물류 타입
                 break;
@@ -508,7 +505,6 @@ let getTransactionInfo = async function(txhash) {
                 let txdata = new Object(); // txtype별 data를 담을 오브젝트
                 txdata.orderId = data.orderId; // 주문번호
                 txdata.orderAddr = data.orderAddr; // 주문 컨트랙트 주소
-                txdata.creator = data.creator; // 컨트랙트 소유자 주소
                 logistics.txdata = txdata;
                 logistics.txtype = data.txtype; // 물류 타입
                 break;
@@ -527,7 +523,6 @@ let getTransactionInfo = async function(txhash) {
                     break;
                 }
                 txdata.contractType = data.deployedType; // 컨트랙트 타입 (service / company / order)
-                txdata.creator = data.creator; // 컨트랙트 소유자 주소 (=from)
                 logistics.txdata = txdata;
                 logistics.txtype = data.txtype; // 물류 타입
                 break;
@@ -537,9 +532,17 @@ let getTransactionInfo = async function(txhash) {
                 let txdata = new Object(); // txtype별 data를 담을 오브젝트
                 txdata.companyName = data.companyName; // 물류사 이름
                 txdata.companyAddr = data.companyAddr; // 물류사 컨트랙트 주소
-                txdata.creator = data.creator; // 컨트랙트 소유자 주소
                 logistics.txdata = txdata;
                 logistics.txtype = data.txtype; // 물류 타입
+                break;
+            }
+            case 'SETTLEMENT': {
+                let txdata = new Object(); // txtype별 data를 담을 오브젝트
+                txdata.recipient = data.recipient; // 물류사 이름
+                txdata.payments = data.param01; // 인센티브 정산 지급액
+                txdata.rests = data.param02; // 인센티브 잔액
+                logistics.txdata = txdata;
+                logistics.txtype = 'SETTLEMENT'; // 물류 타입
                 break;
             }
             case 'addOperator': {
@@ -548,7 +551,6 @@ let getTransactionInfo = async function(txhash) {
                 txdata.companyName = data.companyName; // 물류사 이름
                 txdata.companyAddr = data.companyAddr; // 물류사 컨트랙트 주소
                 txdata.operator = data.param01; // 운영자 주소
-                txdata.creator = data.creator; // 컨트랙트 소유자 주소
                 logistics.txdata = txdata;
                 logistics.txtype = 'MANAGEMENT'; // 물류 타입
                 break;
@@ -559,7 +561,6 @@ let getTransactionInfo = async function(txhash) {
                 txdata.companyName = data.companyName; // 물류사 이름
                 txdata.companyAddr = data.companyAddr; // 물류사 컨트랙트 주소
                 txdata.operator = data.param01; // 운영자 주소
-                txdata.creator = data.creator; // 컨트랙트 소유자 주소
                 logistics.txdata = txdata;
                 logistics.txtype = 'MANAGEMENT'; // 물류 타입
                 break;
@@ -571,7 +572,6 @@ let getTransactionInfo = async function(txhash) {
                 txdata.companyAddr = data.companyAddr; // 물류사 컨트랙트 주소
                 txdata.oldName = data.param01; // 물류사의 기존 이름
                 txdata.newName = data.param02; // 물류사의 새로운 이름
-                txdata.creator = data.creator; // 컨트랙트 소유자 주소
                 logistics.txdata = txdata;
                 logistics.txtype = 'MANAGEMENT'; // 물류 타입
                 break;
@@ -583,7 +583,6 @@ let getTransactionInfo = async function(txhash) {
                 txdata.companyAddr = data.companyAddr; // 물류사 컨트랙트 주소
                 txdata.oldUrl = data.param01; // 물류사의 기존 URL
                 txdata.newUrl = data.param02; // 물류사의 새로운 URL
-                txdata.creator = data.creator; // 컨트랙트 소유자 주소
                 logistics.txdata = txdata;
                 logistics.txtype = 'MANAGEMENT'; // 물류 타입
                 break;
@@ -595,7 +594,6 @@ let getTransactionInfo = async function(txhash) {
                 txdata.companyAddr = data.companyAddr; // 물류사 컨트랙트 주소
                 txdata.oldRecipient = data.param01; // 물류사의 기존 수취인주소
                 txdata.newRecipient = data.param02; // 물류사의 새로운 수취인주소
-                txdata.creator = data.creator; // 컨트랙트 소유자 주소
                 logistics.txdata = txdata;
                 logistics.txtype = 'MANAGEMENT'; // 물류 타입
                 break;
@@ -607,7 +605,6 @@ let getTransactionInfo = async function(txhash) {
                 txdata.orderAddr = data.orderAddr; // 주문 컨트랙트 주소
                 txdata.oldUrl = data.param01; // 주문 상세내역의 기존 URL
                 txdata.newUrl = data.param02; // 주문 상세내역의 새로운 URL
-                txdata.creator = data.creator; // 컨트랙트 소유자 주소
                 logistics.txdata = txdata;
                 logistics.txtype = 'MANAGEMENT'; // 물류 타입
                 break;
@@ -685,7 +682,6 @@ let getTransactionInfo = async function(txhash) {
                 let txdata = new Object(); // txtype별 data를 담을 오브젝트
                 txdata.contractType = data.deployedType; // 컨트랙트 타입 (token only)
                 txdata.contractAddr = data.tokenAddr;
-                txdata.creator = data.creator; // 컨트랙트 소유자 주소 (=from)
                 tokens.txdata = txdata;
                 break;
             }

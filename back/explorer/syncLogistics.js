@@ -339,7 +339,16 @@ let procTxService = async function(receipt, inputs, eventLogs, item) {
                 break;
             }
             case '0x6a256b29': { // "settle(address)"
-                item.txtype = 'SETTLEMENT';
+                for(let i = 0; i < eventLogs.length; i++) {
+                    if(eventLogs[i].name == 'Settled') {
+                        item.recipient = eventLogs[i].ret.addr.toLowerCase();
+                        item.param01 = eventLogs[i].ret.value;
+                        item.param02 = eventLogs[i].ret.rests;
+                        item.txtype = 'SETTLEMENT';
+                        await TxLogistics.collection.insertOne(item);
+                        break;
+                    }
+                }
                 break;
             }
             default:
@@ -613,7 +622,7 @@ let syncPastBlocks = async function(startblock, table) {
                 await Block.collection.updateOne({nettype: 'logistics'}, {$set: {blockNumber: data.number}});
             }
             let latest = await Block.findOne({nettype: 'logistics'});
-            Log('DEBUG', `New Block Detected: BLOCK:[${BLUE(latest.blockNumber)}]`);
+            //Log('DEBUG', `New Block Detected: BLOCK:[${BLUE(latest.blockNumber)}]`);
             const timestamp = data.timestamp;
             for(idx in data.transactions) {
                 await parseDkargoTxns(data.transactions[idx], table, timestamp);
@@ -667,7 +676,7 @@ let RunProc = async function() {
                 await Block.collection.updateOne({nettype: 'logistics'}, {$set: {blockNumber: data.number}});
             }
             let latest = await Block.findOne();
-            Log('DEBUG', `New Block Detected: BLOCK:[${BLUE(latest.blockNumber)}]`);
+            //Log('DEBUG', `New Block Detected: BLOCK:[${BLUE(latest.blockNumber)}]`);
             const timestamp = data.timestamp;
             for(idx in data.transactions) {
                 const txdata  = data.transactions[idx];
