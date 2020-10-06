@@ -273,10 +273,9 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 }
                 let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
                 let end = (data.txnsCnt >= pageUnit)? (pageUnit) : (data.txnsCnt);
-                let total = end-start;
-                let lists = await TxLogistics.find({companyAddr: addr}).sort('-blockNumber').lean(true).limit(total);
+                let lists = await TxLogistics.find({companyAddr: addr}).sort('-blockNumber').lean(true).limit(end);
                 let txns = new Array(); // TX 요약정보를 담을 배열
-                for(let idx = 0; idx < total; idx++) {
+                for(let idx = start; idx < end; idx++) {
                     let elmt = new Object();
                     elmt.txhash = lists[idx].hash; // 트랜젝션 해시
                     elmt.status = lists[idx].status; // 트랜젝션 상태 (success / fail / pending)
@@ -293,10 +292,9 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 }
                 let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
                 let end = (data.ordersCnt >= pageUnit)? (pageUnit) : (data.ordersCnt);
-                let total = end-start;
-                let lists = await OrderTrack.find({companyAddr: addr}).sort('-blockNumber').lean(true).limit(total);
+                let lists = await OrderTrack.find({companyAddr: addr}).sort('-blockNumber').lean(true).limit(end);
                 let orders = new Array(); // 물류사 담당 주문-구간을 담을 배열
-                for(let idx = 0; idx < total; idx++) {
+                for(let idx = start; idx < end; idx++) {
                     let elmt = new Object();
                     elmt.orderAddr = lists[idx].orderAddr; // 주문 컨트랙트 주소
                     elmt.orderId = lists[idx].orderId; // 주문 번호
@@ -332,10 +330,9 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 }
                 let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
                 let end = (data.logisticsCnt >= pageUnit)? (pageUnit) : (data.logisticsCnt);
-                let total = end-start;
-                let lists = await TxLogistics.find({$or: [{from: addr}, {recipient: addr}]}).sort('-blockNumber').lean(true).limit(total);
+                let lists = await TxLogistics.find({$or: [{from: addr}, {recipient: addr}]}).sort('-blockNumber').lean(true).limit(end);
                 let logistics = new Array(); // TX 요약정보를 담을 배열
-                for(let idx = 0; idx < total; idx++) {
+                for(let idx = start; idx < end; idx++) {
                     let elmt = new Object();
                     elmt.txhash = lists[idx].hash; // 트랜젝션 해시
                     elmt.status = lists[idx].status; // 트랜젝션 상태 (success / fail / pending)
@@ -352,10 +349,9 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 }
                 let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
                 let end = (data.tokensCnt >= start + pageUnit)? (pageUnit) : (data.tokensCnt);
-                let total = end-start;
-                let lists = await TxToken.find({$or: [{from: addr}, {origin: addr}, {dest: addr}]}).sort('-blockNumber').lean(true).limit(total);
+                let lists = await TxToken.find({$or: [{from: addr}, {origin: addr}, {dest: addr}]}).sort('-blockNumber').lean(true).limit(end);
                 let tokens = new Array(); // TX 요약정보를 담을 배열
-                for(let idx = 0; idx < total; idx++) {
+                for(let idx = start; idx < end; idx++) {
                     let elmt = new Object();
                     elmt.txhash = lists[idx].hash; // 트랜젝션 해시
                     elmt.time = lists[idx].timestamp; // 트랜젝션 생성시각
