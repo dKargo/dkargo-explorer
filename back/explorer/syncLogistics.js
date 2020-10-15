@@ -33,19 +33,6 @@ const libCompany = require('../libs/libDkargoCompany.js'); // 물류사 컨트�
 const libOrder   = require('../libs/libDkargoOrder.js'); // 주문 컨트랙트 관련 Library
 
 /**
- * @notice 사용법 출력함수이다.
- * @author jhhong
- */
-function usage() {
-    const fullpath = __filename.split('/');
-    const filename = fullpath[fullpath.length - 1];
-    console.log(GREEN("Usage:"));
-    console.log(`> node ${filename} [argv1] [argv2]`);
-    console.log(`....[argv1]: Service Address`);
-    console.log(`....[argv2]: Start Block`);
-}
-
-/**
  * @notice ca가 디카르고 컨트랙트 증명을 위한 인터페이스를 지원하는지 확인한다.
  * @param {string} ca 컨트랙트 주소
  * @return boolean (true: 지원(O), false: 지원(X))
@@ -87,7 +74,7 @@ let getDkargoPrefix = async function(ca) {
 
 /**
  * @notice 블록에 service 컨트랙트가 실제로 존재하는지 확인한다.
- * @param {String} addr service 컨트랙트 주소
+ * @param {String} addr    service 컨트랙트 주소
  * @param {Number} genesis service 컨트랙트가 deploy된 블록넘버
  * @return boolean (true: 존재함, false: 존재하지 않음)
  * @author jhhong
@@ -122,7 +109,7 @@ let checkValidGenesis = async function(addr, genesis) {
 
 /**
  * @notice 모니터링 시작 블록넘버를 구한다.
- * @param {String} addr service 컨트랙트 주소
+ * @param {String} addr         service 컨트랙트 주소
  * @param {Number} defaultblock service 컨트랙트가 deploy된 블록넘버 (process.argv[3])
  * @return 모니터링 시작 블록넘버(Number)
  * @author jhhong
@@ -232,7 +219,7 @@ let createEventParseTable = async function() {
 /**
  * @notice 트랜젝션 안의 모든 이벤트로그들의 정보를 획득한다.
  * @param {Object} receipt getTransactionReceipt 결과물
- * @param {Object} table EventLog Parsing 테이블
+ * @param {Object} table   EventLog Parsing 테이블
  * @return 트랜젝션 안의 모든 이벤트로그들의 정보 (배열)
  * @author jhhong
  */
@@ -289,12 +276,11 @@ let getEventLogs = async function(receipt, table) {
  * @dev DEPLOY: DEPLOY 트랜젝션 처리
  * @dev REGISTER: 물류사 등록 트랜젝션 처리
  * @dev UNREGISTER: 물류사 등록해제 트랜젝션 처리
- * @dev MARK-PAYMENT: 주문 결제확인 트랜젝션 처리
  * @dev SETTLE: 인센티브 정산 트랜젝션 처리
- * @param {Object} receipt getTransactionReceipt 결과물
- * @param {String} inputs 트랜젝션 INPUT DATA (HEXA-STRING)
+ * @param {Object} receipt   getTransactionReceipt 결과물
+ * @param {String} inputs    트랜젝션 INPUT DATA (HEXA-STRING)
  * @param {Object} eventLogs 트랜젝션의 이벤트 로그 파싱 결과물
- * @param {Object} item DB에 저장할 트랜젝션 파싱 결과물
+ * @param {Object} item      DB에 저장할 트랜젝션 파싱 결과물
  * @author jhhong
  */
 let procTxService = async function(receipt, inputs, eventLogs, item) {
@@ -331,13 +317,6 @@ let procTxService = async function(receipt, inputs, eventLogs, item) {
                 }
                 break;
             }
-            case '0x35e646ea': { // "markOrderPayed(address)"
-                item.orderAddr = `0x${inputs.substring(34, 74)}`; // inputs에서 주문 컨트랙트 주소 추출
-                item.orderId = await libOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
-                item.txtype = 'MARK-PAYMENT';
-                await TxLogistics.collection.insertOne(item);
-                break;
-            }
             case '0x6a256b29': { // "settle(address)"
                 for(let i = 0; i < eventLogs.length; i++) {
                     if(eventLogs[i].name == 'Settled') {
@@ -369,10 +348,10 @@ let procTxService = async function(receipt, inputs, eventLogs, item) {
  * @dev MANAGEMENT (setName): 물류사 이름 변경 트랜젝션 처리
  * @dev MANAGEMENT (setUrl): 물류사 URL 변경 트랜젝션 처리
  * @dev MANAGEMENT (setRecipient): 물류사 수취인주소 변경 트랜젝션 처리
- * @param {Object} receipt getTransactionReceipt 결과물
- * @param {String} inputs 트랜젝션 INPUT DATA (HEXA-STRING)
+ * @param {Object} receipt   getTransactionReceipt 결과물
+ * @param {String} inputs    트랜젝션 INPUT DATA (HEXA-STRING)
  * @param {Object} eventLogs 트랜젝션의 이벤트 로그 파싱 결과물
- * @param {Object} item DB에 저장할 트랜젝션 파싱 결과물
+ * @param {Object} item      DB에 저장할 트랜젝션 파싱 결과물
  * @author jhhong
  */
 let procTxCompany = async function(receipt, inputs, eventLogs, item) {
@@ -487,39 +466,19 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
  * @notice Order 컨트랙트 관련 트랜젝션을 처리하는 프로시져이다.
  * @dev SUBMIT: DEPLOY 트랜젝션 처리
  * @dev MANAGEMENT (setUrl): 주문 상세URL 변경 트랜젝션 처리
- * @param {Object} receipt getTransactionReceipt 결과물
- * @param {String} inputs 트랜젝션 INPUT DATA (HEXA-STRING)
+ * @param {Object} receipt   getTransactionReceipt 결과물
+ * @param {String} inputs    트랜젝션 INPUT DATA (HEXA-STRING)
  * @param {Object} eventLogs 트랜젝션의 이벤트 로그 파싱 결과물
- * @param {Object} item DB에 저장할 트랜젝션 파싱 결과물
+ * @param {Object} item      DB에 저장할 트랜젝션 파싱 결과물
  * @author jhhong
  */
 let procTxOrder = async function(receipt, inputs, eventLogs, item) {
     try {
         if(inputs == null) { // 트랜젝션: DEPLOY
             item.orderAddr = receipt.contractAddress.toLowerCase(); // DEPLOYED: 주문 컨트랙트 주소
-            let orderid  = await libOrder.orderid(receipt.contractAddress); // 주문번호
             item.deployedType = 'order'; // DEPLOYED 컨트랙트 타입
             item.txtype = 'DEPLOY';
             await TxLogistics.collection.insertOne(item); // 물류 트랜젝션 정보 DB에 저장
-            let totalcnt = await libOrder.trackingCount(receipt.contractAddress); // 총 주문구간 갯수
-            if(await libOrder.isComplete(receipt.contractAddress) == true) {
-                totalcnt = totalcnt - 1;
-            }
-            for(let idx = 0; idx < totalcnt; idx++) {
-                let track = new OrderTrack();
-                track.blockNumber = receipt.blockNumber; // 블록넘버
-                track.orderAddr = receipt.contractAddress.toLowerCase(); // 주문 컨트랙트 주소
-                track.orderId = orderid; // 주문번호
-                let trackinfo = await libOrder.tracking(receipt.contractAddress, idx); // 주문 구간정보
-                track.companyAddr = trackinfo[1].toLowerCase(); // 담당자 주소(화주 or 물류사)
-                track.code = trackinfo[2]; // 물류 배송코드
-                track.incentives = trackinfo[3]; // 인센티브 정보
-                track.transportId = idx; // 운송번호
-                if(idx > 0) { // idx=0은 화주, 물류사가 아니므로 물류사 이름을 기록하지 않음
-                    track.companyName = await libCompany.name(trackinfo[1]); // 물류사 이름
-                }
-                await OrderTrack.collection.insertOne(track); // 구간정보 DB에 저장
-            }
         } else {
             const selector = inputs.substr(0, 10);
             switch(selector) {
@@ -528,8 +487,21 @@ let procTxOrder = async function(receipt, inputs, eventLogs, item) {
                 item.orderId = await libOrder.orderid(item.orderAddr); // 주문 컨트랙트 주소로 주문번호 획득
                 item.txtype = 'SUBMIT';
                 await TxLogistics.collection.insertOne(item);
-                if(await OrderTrack.countDocuments({orderAddr: item.orderAddr}) > 0) {
-                    await OrderTrack.collection.updateMany({orderAddr: item.orderAddr}, {$set: {orderId: item.orderId}});
+                let totalcnt = await libOrder.trackingCount(item.orderAddr); // 총 주문구간 갯수
+                for(let idx = 0; idx < totalcnt; idx++) {
+                    let track = new OrderTrack();
+                    track.blockNumber = receipt.blockNumber; // 블록넘버
+                    track.orderAddr = item.orderAddr; // 주문 컨트랙트 주소
+                    track.orderId = item.orderId; // 주문번호
+                    let trackinfo = await libOrder.tracking(item.orderAddr, idx); // 주문 구간정보
+                    track.companyAddr = trackinfo[1].toLowerCase(); // 담당자 주소(화주 or 물류사)
+                    track.code = trackinfo[2]; // 물류 배송코드
+                    track.incentives = trackinfo[3]; // 인센티브 정보
+                    track.transportId = idx; // 운송번호
+                    if(idx > 0) { // idx=0은 화주, 물류사가 아니므로 물류사 이름을 기록하지 않음
+                        track.companyName = await libCompany.name(trackinfo[1]); // 물류사 이름
+                    }
+                    await OrderTrack.collection.insertOne(track); // 구간정보 DB에 저장
                 }
                 break;
             }
@@ -559,8 +531,8 @@ let procTxOrder = async function(receipt, inputs, eventLogs, item) {
 /**
  * @notice 디카르고 트랜젝션을 파싱한다.
  * @dev 디카르고 플랫폼에서 만든 트랜젝션인지 판별하여 데이터 파싱
- * @param {Object} txdata 트랜젝션 정보 (eth.getTransaction)
- * @param {Object} table Event Log Parsing 테이블 (이벤트 이름 / inputs / signature 조합)
+ * @param {Object} txdata    트랜젝션 정보 (eth.getTransaction)
+ * @param {Object} table     Event Log Parsing 테이블 (이벤트 이름 / inputs / signature 조합)
  * @param {String} timestamp 블록 timestamp (Epoch TIme)
  * @author jhhong
  */
@@ -605,7 +577,7 @@ let parseDkargoTxns = async function(txdata, table, timestamp) {
 /**
  * @notice 과거의 블록정보에 대한 파싱작업을 수행한다.
  * @param {Number} startblock 스타트 블럭넘버
- * @param {Object} table Event Log Parsing 테이블
+ * @param {Object} table      Event Log Parsing 테이블
  * @author jhhong
  */
 let syncPastBlocks = async function(startblock, table) {
@@ -633,6 +605,19 @@ let syncPastBlocks = async function(startblock, table) {
     } catch(error) {
         Log('ERROR', `${RED(error)}`);
     }
+}
+
+/**
+ * @notice 사용법 출력함수이다.
+ * @author jhhong
+ */
+function usage() {
+    const fullpath = __filename.split('/');
+    const filename = fullpath[fullpath.length - 1];
+    console.log(GREEN("Usage:"));
+    console.log(`> node ${filename} [argv1] [argv2]`);
+    console.log(`....[argv1]: Service Address`);
+    console.log(`....[argv2]: Start Block`);
 }
 
 /**

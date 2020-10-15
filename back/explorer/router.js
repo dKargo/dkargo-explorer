@@ -107,7 +107,7 @@ let getAddressType = async function(addr) {
 
 /**
  * @notice 주문 상태를 반환한다.
- * @param {String} addr 주문 컨트랙트 주소
+ * @param {String} addr        주문 컨트랙트 주소
  * @param {String} transportId 물류사 담당 운송번호 (주문의 현재 STEP값과 비교하여 물류사가 현재 주문을 착수하였는지의 여부를 판별)
  * @return 주문 상태(String: success/fail/proceeding/error)
  * @author jhhong
@@ -153,7 +153,6 @@ let getTxType = async function(txtype) {
             return 'MANAGEMENT';
         case 'REGISTER':         // 물류사를 디카르고 플랫폼에 등록
         case 'UNREGISTER':       // 물류사를 디카르고 플랫폼에서 등록해제
-        case 'MARK-PAYMENT':     // 주문이 결제되었음을 확인
         case 'SETTLEMENT':       // 인센티브 정산
         case 'ORDER-LAUNCH':     // 물류사의 주문접수
         case 'ORDER-UPDATE':     // 물류사의 주문상태 갱신
@@ -176,11 +175,11 @@ let getTxType = async function(txtype) {
 /**
  * @notice 계정 정보를 획득한다.
  * @dev 표현 가능 Account 정보: EOA / CA(Company) / CA(Order), 차후 CA(Service)도 추가 예정
- * @param {String} addr 계정 주소
- * @param {Number} page 페이지 인덱스 (page * 25 == 시작 인덱스)
- * @param {String} type 도시할 정보 타입 (logistics / token)
+ * @param {String} addr    계정 주소
+ * @param {Number} page    페이지 인덱스 (page * 25 == 시작 인덱스)
+ * @param {String} type    도시할 정보 타입 (logistics / token)
  * @param {String} service 서비스 컨트랙트 주소
- * @param {String} token 토큰 컨트랙트 주소
+ * @param {String} token   토큰 컨트랙트 주소
  * @return 계정 정보 (json), 정보가 없거나 오류발생 시 'none'
  * @author jhhong
  */
@@ -209,10 +208,6 @@ let getAccountInfo = async function(addr, page, type, service, token) {
             data.url = await libOrder.url(addr); // 주문 상세 URL
             data.currentStep = parseInt(await libOrder.currentStep(addr)) + 1; // 주문 현재 배송구간 인덱스 (0부터 시작 -> +1)
             data.trackingCount = await libOrder.trackingCount(addr); // 주문 총 배송구간 갯수
-            if(await libOrder.isComplete(addr) == true) {
-                data.trackingCount -= 1; // 배송완료된 주문일 경우 "TRACKCODE_COMPLETE"에 해당하는 트래킹정보를 제외하기 위함
-                data.currentStep   -= 1; // currentStep과 trackingCount의 sync를 맞추기 위함
-            }
             let tracks = new Array(); // 주문의 각 배송정보를 담을 배열
             for(let idx = 0; idx < data.trackingCount; idx++) {
                 let trackinfo = await libOrder.tracking(addr, idx); // 구간별 배송정보
@@ -262,7 +257,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
             data.companyName = await libCompany.name(addr); // 물류사 이름
             data.url = await libCompany.url(addr); // 물류사 상세정보 URL (ie. Home Page)
             data.recipient = await libCompany.recipient(addr); // 물류사 수취인 주소
-            data.grade = await libService.degree(service, addr); // 물류사의 평점 획득
+            data.grade = await libService.completeOrders(service, addr); // 물류사의 "배송완료한 총 주문개수" 획득
             data.txnsCnt = await TxLogistics.countDocuments({companyAddr: addr}); // addr과 관련있는 TX 총갯수
             data.ordersCnt = await OrderTrack.countDocuments({companyAddr: addr}); // 물류사가 담당하는 주문-구간 총 갯수
             data.datatype = type; // 요청타입: txns / orders
@@ -397,10 +392,6 @@ let getOrderInfo = async function(orderid, service) {
         resp.url = await libOrder.url(addr); // 주문 상세 URL
         resp.currentStep = parseInt(await libOrder.currentStep(addr)) + 1; // 주문 현재 배송구간 인덱스 (0부터 시작 -> +1)
         resp.trackingCount = await libOrder.trackingCount(addr); // 주문 총 배송구간 갯수
-        if(await libOrder.isComplete(addr) == true) {
-            resp.trackingCount -= 1; // 배송완료된 주문일 경우 "TRACKCODE_COMPLETE"에 해당하는 트래킹정보를 제외하기 위함
-            resp.currentStep   -= 1; // currentStep과 trackingCount의 sync를 맞추기 위함
-        }
         let tracks = new Array(); // 주문의 각 배송정보를 담을 배열
         for(let idx = 0; idx < resp.trackingCount; idx++) {
             let trackinfo = await libOrder.tracking(addr, idx); // 구간별 배송정보
@@ -485,14 +476,6 @@ let getTransactionInfo = async function(txhash) {
                 txdata.code = data.code; // 배송코드
                 txdata.companyName = data.companyName; // 물류사 이름
                 txdata.companyAddr = data.companyAddr; // 물류사 컨트랙트 주소
-                logistics.txdata = txdata;
-                logistics.txtype = data.txtype; // 물류 타입
-                break;
-            }
-            case 'MARK-PAYMENT': {
-                let txdata = new Object(); // txtype별 data를 담을 오브젝트
-                txdata.orderId = data.orderId; // 주문번호
-                txdata.orderAddr = data.orderAddr; // 주문 컨트랙트 주소
                 logistics.txdata = txdata;
                 logistics.txtype = data.txtype; // 물류 타입
                 break;
@@ -765,9 +748,9 @@ let getTransactionInfo = async function(txhash) {
 
 /**
  * @notice EXPLORER REQUEST 처리 routing 수행 함수
- * @param {Object} app Express Object
+ * @param {Object} app     Express Object
  * @param {String} service Express Object
- * @param {String} token Express Object
+ * @param {String} token   Express Object
  * @author jhhong
  */
 module.exports = function(app, service, token) {

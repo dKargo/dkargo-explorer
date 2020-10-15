@@ -27,19 +27,6 @@ const abiERC165 = require('../build/contracts/ERC165.json').abi; // 컨트랙트
 const abiToken  = require('../build/contracts/DkargoToken.json').abi; // 컨트랙트 ABI (DkargoToken)
 
 /**
- * @notice 사용법 출력함수이다.
- * @author jhhong
- */
-function usage() {
-    const fullpath = __filename.split('/');
-    const filename = fullpath[fullpath.length - 1];
-    console.log(GREEN("Usage:"));
-    console.log(`> node ${filename} [argv1] [argv2]`);
-    console.log(`....[argv1]: Token Address`);
-    console.log(`....[argv2]: Start Block`);
-}
-
-/**
  * @notice ca가 디카르고 컨트랙트 증명을 위한 인터페이스를 지원하는지 확인한다.
  * @param {string} ca 컨트랙트 주소
  * @return boolean (true: 지원(O), false: 지원(X))
@@ -81,7 +68,7 @@ let getDkargoPrefix = async function(ca) {
 
 /**
  * @notice 블록에 token 컨트랙트가 실제로 존재하는지 확인한다.
- * @param {String} addr token 컨트랙트 주소
+ * @param {String} addr    token 컨트랙트 주소
  * @param {Number} genesis token 컨트랙트가 deploy된 블록넘버
  * @return boolean (true: 존재함, false: 존재하지 않음)
  * @author jhhong
@@ -116,7 +103,7 @@ let checkValidGenesis = async function(addr, genesis) {
 
 /**
  * @notice 모니터링 시작 블록넘버를 구한다.
- * @param {String} addr service 컨트랙트 주소
+ * @param {String} addr         service 컨트랙트 주소
  * @param {Number} defaultblock service 컨트랙트가 deploy된 블록넘버 (process.argv[3])
  * @return 모니터링 시작 블록넘버(Number)
  * @author jhhong
@@ -188,7 +175,7 @@ let createEventParseTable = async function() {
 /**
  * @notice 트랜젝션 안의 모든 이벤트로그들의 정보를 획득한다.
  * @param {Object} receipt getTransactionReceipt 결과물
- * @param {Object} table EventLog Parsing 테이블
+ * @param {Object} table   EventLog Parsing 테이블
  * @return 트랜젝션 안의 모든 이벤트로그들의 정보 (배열)
  * @author jhhong
  */
@@ -242,11 +229,11 @@ let getEventLogs = async function(receipt, table) {
 
 /**
  * @notice Token 컨트랙트 관련 트랜젝션을 처리하는 프로시져이다.
- * @dev register / settle / unregister / markOrderPayed
- * @param {Object} receipt getTransactionReceipt 결과물
- * @param {String} inputs 트랜젝션 INPUT DATA (HEXA-STRING)
+ * @dev DEPLOY / transfer(transferFrom) / burn / approve
+ * @param {Object} receipt   getTransactionReceipt 결과물
+ * @param {String} inputs    트랜젝션 INPUT DATA (HEXA-STRING)
  * @param {Object} eventLogs 트랜젝션의 이벤트 로그 파싱 결과물
- * @param {Object} item DB에 저장할 트랜젝션 파싱 결과물
+ * @param {Object} item      DB에 저장할 트랜젝션 파싱 결과물
  * @author jhhong
  */
 let procTxToken = async function(receipt, inputs, eventLogs, item) {
@@ -310,8 +297,8 @@ let procTxToken = async function(receipt, inputs, eventLogs, item) {
 /**
  * @notice 디카르고 트랜젝션을 파싱한다.
  * @dev 디카르고 플랫폼에서 만든 트랜젝션인지 판별하여 데이터 파싱
- * @param {Object} txdata 트랜젝션 정보 (eth.getTransaction)
- * @param {Object} table Event Log Parsing 테이블 (이벤트 이름 / inputs / signature 조합)
+ * @param {Object} txdata    트랜젝션 정보 (eth.getTransaction)
+ * @param {Object} table     Event Log Parsing 테이블 (이벤트 이름 / inputs / signature 조합)
  * @param {String} timestamp 블록 timestamp (Epoch TIme)
  * @author jhhong
  */
@@ -354,7 +341,7 @@ let parseDkargoTxns = async function(txdata, table, timestamp) {
 /**
  * @notice 과거의 블록정보에 대한 파싱작업을 수행한다.
  * @param {Number} startblock 스타트 블럭넘버
- * @param {Object} table Event Log Parsing 테이블
+ * @param {Object} table      Event Log Parsing 테이블
  * @author jhhong
  */
 let syncPastBlocks = async function(startblock, table) {
@@ -382,6 +369,19 @@ let syncPastBlocks = async function(startblock, table) {
     } catch(error) {
         Log('ERROR', `${RED(error)}`);
     }
+}
+
+/**
+ * @notice 사용법 출력함수이다.
+ * @author jhhong
+ */
+function usage() {
+    const fullpath = __filename.split('/');
+    const filename = fullpath[fullpath.length - 1];
+    console.log(GREEN("Usage:"));
+    console.log(`> node ${filename} [argv1] [argv2]`);
+    console.log(`....[argv1]: Token Address`);
+    console.log(`....[argv2]: Start Block`);
 }
 
 /**
