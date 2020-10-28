@@ -130,18 +130,12 @@ let getStartBlock = async function(addr, defaultblock) {
             if(latest.blockNumber >= defaultblock) { // 마지막 처리된 이벤트 내용을 Work Schema에서 삭제 (중복저장 방지)
                 let ret = await TxLogistics.deleteMany({blocknumber: latest.blockNumber});
                 if(ret != null) {
-                    let action = `TxLogistics.deleteMany done!\n` +
-                    `- [Matched]:      [${GREEN(ret.n)}],\n` +
-                    `- [Successful]:   [${GREEN(ret.ok)}],\n` +
-                    `- [DeletedCount]: [${GREEN(ret.deletedCount)}]`;
+                    let action = `Delete done! (TxLogistics) count:[${GREEN(ret.deletedCount)}]`;
                     Log('DEBUG', `${action}`);
                 }
                 ret = await OrderTrack.deleteMany({blocknumber: latest.blockNumber});
                 if(ret != null) {
-                    let action = `OrderTrack.deleteMany done!\n` +
-                    `- [Matched]:      [${GREEN(ret.n)}],\n` +
-                    `- [Successful]:   [${GREEN(ret.ok)}],\n` +
-                    `- [DeletedCount]: [${GREEN(ret.deletedCount)}]`;
+                    let action = `Delete done! (OrderTrack) count:[${GREEN(ret.deletedCount)}]`;
                     Log('DEBUG', `${action}`);
                 }
                 return latest.blockNumber;
