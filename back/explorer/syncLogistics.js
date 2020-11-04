@@ -22,55 +22,14 @@ const RED   = require('../libs/libLog.js').consoleRed; // 콘솔 컬러 출력: 
 const GREEN = require('../libs/libLog.js').consoleGreen; // 콘솔 컬러 출력: GREEN
 const BLUE  = require('../libs/libLog.js').consoleBlue; // 콘솔 컬러 출력: BLUE
 const GRAY  = require('../libs/libLog.js').consoleGray; // 콘솔 컬러 출력: GRAY
-//// GLOBALs
-const abiPrefix  = require('../build/contracts/DkargoPrefix.json').abi; // 컨트랙트 ABI
-const abiERC165  = require('../build/contracts/ERC165.json').abi; // 컨트랙트 ABI
+//// ABIs
 const abiService = require('../build/contracts/DkargoService.json').abi; // 서비스 컨트랙트 ABI
 const abiCompany = require('../build/contracts/DkargoCompany.json').abi; // 물류사 컨트랙트 ABI
 const abiOrder   = require('../build/contracts/DkargoOrder.json').abi; // 주문 컨트랙트 ABI
 //// APIs
 const libCompany = require('../libs/libDkargoCompany.js'); // 물류사 컨트랙트 관련 Library
 const libOrder   = require('../libs/libDkargoOrder.js'); // 주문 컨트랙트 관련 Library
-
-/**
- * @notice ca가 디카르고 컨트랙트 증명을 위한 인터페이스를 지원하는지 확인한다.
- * @param {string} ca 컨트랙트 주소
- * @return boolean (true: 지원(O), false: 지원(X))
- * @author jhhong
- */
-let isDkargoContract = async function(ca) {
-    try {
-        let ERC165 = new web3.eth.Contract(abiERC165, ca);
-        if(await ERC165.methods.supportsInterface('0x01ffc9a7').call() != true) {
-            throw new Error(`<supportsInterface> Not Supported!`);
-        }
-        if(await ERC165.methods.supportsInterface('0x946edbed').call() != true) {
-            throw new Error(`<getDkargoPrefix> Not Supported!`);
-        }
-        return true;
-    } catch(error) {
-        let action = `Action: isDkargoContract`;
-        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
-        return false;
-    }
-}
-
-/**
- * @notice 디카르고 컨트랙트의 Prefix를 읽어온다.
- * @param {string} ca 컨트랙트 주소
- * @return Prefix(String:정상수행) / null(오류발생)
- * @author jhhong
- */
-let getDkargoPrefix = async function(ca) {
-    try {
-        let DkargoPrefix = new web3.eth.Contract(abiPrefix, ca);
-        return await DkargoPrefix.methods.getDkargoPrefix().call();
-    } catch(error) {
-        let action = `Action: getDkargoPrefix`;
-        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
-        return false;
-    }
-}
+const libCommon  = require('../libs/libCommon.js'); // Common Library
 
 /**
  * @notice 블록에 service 컨트랙트가 실제로 존재하는지 확인한다.
@@ -91,8 +50,8 @@ let checkValidGenesis = async function(addr, genesis) {
             const receipt = await web3.eth.getTransactionReceipt(txdata.hash);
             if(txdata.input && txdata.input.length > 2 && txdata.to === null) { // CONTRACT DEPLOY를 수행하는 TX
                 let ca = receipt.contractAddress.toLowerCase();
-                if(ca == addr.toLowerCase() && await isDkargoContract(ca) == true) { // 해당 컨트랙트(ca)가 디카르고 컨트랙트 증명을 위한 인터페이스를 지원함
-                    let prefix = await getDkargoPrefix(ca); // 해당 컨트랙트(ca)의 prefix를 읽어옴
+                if(ca == addr.toLowerCase() && await libCommon.isDkargoContract(ca) == true) { // 해당 컨트랙트(ca)가 디카르고 컨트랙트 증명을 위한 인터페이스를 지원함
+                    let prefix = await libCommon.getDkargoPrefix(ca); // 해당 컨트랙트(ca)의 prefix를 읽어옴
                     if(prefix == 'service') {
                         return true;
                     }
@@ -535,12 +494,12 @@ let parseDkargoTxns = async function(txdata, table, timestamp) {
         if(txdata.input && txdata.input.length > 2) { // 컨트랙트 트랜젝션
             const receipt = await web3.eth.getTransactionReceipt(txdata.hash);
             let ca = (txdata.to === null)? (receipt.contractAddress.toLowerCase()) : (txdata.to.toLowerCase());
-            if(await isDkargoContract(ca) == true) { // 디카르고 컨트랙트인 경우에만 처리
+            if(await libCommon.isDkargoContract(ca) == true) { // 디카르고 컨트랙트인 경우에만 처리
                 let funcTable = {}; // Dictionary 변수 선언 (PREFIX-FUNCTION MAPPER)
                 funcTable['service'] = procTxService; // 처리담당 함수 지정 'service'
                 funcTable['company'] = procTxCompany; // 처리담당 함수 지정 'company'
                 funcTable['order']   = procTxOrder;   // 처리담당 함수 지정 'order'
-                let prefix = await getDkargoPrefix(ca); // 디카르고 PREFIX 획득
+                let prefix = await libCommon.getDkargoPrefix(ca); // 디카르고 PREFIX 획득
                 if(funcTable[prefix] != undefined) {
                     let item = new TxLogistics(); // Schema Object 생성
                     item.hash = txdata.hash.toLowerCase();

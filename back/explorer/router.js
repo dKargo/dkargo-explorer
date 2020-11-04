@@ -22,9 +22,6 @@ const web3 = require('../libs/Web3.js').prov2; // 물류 관련 provider
 const Log = require('../libs/libLog.js').Log; // 로그 출력
 //// LOG COLOR (console)
 const RED = require('../libs/libLog.js').consoleRed; // 콘솔 컬러 출력: RED
-//// GLOBALs
-const abiPrefix = require('../build/contracts/DkargoPrefix.json').abi; // 컨트랙트 ABI
-const abiERC165 = require('../build/contracts/ERC165.json').abi; // 컨트랙트 ABI
 //// DOTENV
 require('dotenv').config({ path: path.join(__dirname, '../.env') }); // 지정된 경로의 환경변수 사용 (.env 파일 참조)
 //// APIs & LIBs
@@ -32,46 +29,7 @@ const libService = require('../libs/libDkargoService.js'); // 서비스 컨트�
 const libCompany = require('../libs/libDkargoCompany.js'); // 물류사 컨트랙트 관련 Library
 const libOrder   = require('../libs/libDkargoOrder.js'); // 주문 컨트랙트 관련 Library
 const libToken   = require('../libs/libDkargoToken.js'); // 토큰 컨트랙트 관련 Library
-
-/**
- * @notice ca가 디카르고 컨트랙트 증명을 위한 인터페이스를 지원하는지 확인한다.
- * @param {string} ca 컨트랙트 주소
- * @return boolean (true: 지원(O), false: 지원(X))
- * @author jhhong
- */
-let isDkargoContract = async function(ca) {
-    try {
-        let ERC165 = new web3.eth.Contract(abiERC165, ca);
-        if(await ERC165.methods.supportsInterface('0x01ffc9a7').call() != true) {
-            throw new Error(`<supportsInterface> Not Supported!`);
-        }
-        if(await ERC165.methods.supportsInterface('0x946edbed').call() != true) {
-            throw new Error(`<getDkargoPrefix> Not Supported!`);
-        }
-        return true;
-    } catch(error) {
-        let action = `Action: isDkargoContract`;
-        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
-        return false;
-    }
-}
-
-/**
- * @notice 디카르고 컨트랙트의 Prefix를 읽어온다.
- * @param {string} ca 컨트랙트 주소
- * @return Prefix(String:정상수행) / null(오류발생)
- * @author jhhong
- */
-let getDkargoPrefix = async function(ca) {
-    try {
-        let DkargoPrefix = new web3.eth.Contract(abiPrefix, ca);
-        return await DkargoPrefix.methods.getDkargoPrefix().call();
-    } catch(error) {
-        let action = `Action: getDkargoPrefix`;
-        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
-        return false;
-    }
-}
+const libCommon  = require('../libs/libCommon.js'); // Common Library
 
 /**
  * @notice 주소의 타입을 확인한다.
@@ -84,8 +42,8 @@ let getAddressType = async function(addr) {
     try {
         let type = 'eoa';
         if(await web3.eth.getCode(addr) > 3) { // CA (EOA 판정조건--> geth: 0x, ganache: 0x0)
-            if(await isDkargoContract(addr) == true) {
-                switch(await getDkargoPrefix(addr)) {
+            if(await libCommon.isDkargoContract(addr) == true) {
+                switch(await libCommon.getDkargoPrefix(addr)) {
                 case 'order':
                     type = 'order';
                     break;
@@ -257,7 +215,8 @@ let getAccountInfo = async function(addr, page, type, service, token) {
             data.companyName = await libCompany.name(addr); // 물류사 이름
             data.url = await libCompany.url(addr); // 물류사 상세정보 URL (ie. Home Page)
             data.recipient = await libCompany.recipient(addr); // 물류사 수취인 주소
-            data.grade = await libService.completeOrders(service, addr); // 물류사의 "배송완료한 총 주문개수" 획득
+            let incenobj = await libService.incentives(service, addr); // 물류사의 누적 인센티브 획득
+            data.incentives = parseInt(incenobj[0]) + parseInt(incenobj[1]); // 물류사의 누적 인센티브 획득
             data.txnsCnt = await TxLogistics.countDocuments({companyAddr: addr}); // addr과 관련있는 TX 총갯수
             data.ordersCnt = await OrderTrack.countDocuments({companyAddr: addr}); // 물류사가 담당하는 주문-구간 총 갯수
             data.datatype = type; // 요청타입: txns / orders
@@ -307,16 +266,17 @@ let getAccountInfo = async function(addr, page, type, service, token) {
         } else { // Addr이 일반 EOA인 경우
             let curpage = (page === undefined)? (1) : (page);
             let curtype = (type === undefined)? ('logistics') : (type);
-            if(curtype != 'logistics' && curtype != 'tokens') { // 체크: type
+            if (curtype != 'logistics' && curtype != 'tokens' && curtype != 'orders') { // 체크: type
                 throw new Error(`Invalid Type! type: [${curtype}]`);
             }
-            if(curpage > process.env.MAXPAGES || curpage == 0) { // 체크: page index
+            if (curpage > process.env.MAXPAGES || curpage == 0) { // 체크: page index
                 throw new Error(`Out Of Scope Page! page: [${curpage}]`);
             }
             let data = new Object();
             data.balance = await libToken.balanceOf(token, addr); // 토큰 보유량
             data.logisticsCnt = await TxLogistics.countDocuments({$or: [{from: addr}, {recipient: addr}]}); // addr과 관련있는 TX 총갯수
             data.tokensCnt = await TxToken.countDocuments({$or: [{from: addr}, {origin: addr}, {dest: addr}]}); // addr과 관련있는 TX 총갯수
+            data.ordersCnt = await OrderTrack.countDocuments({companyAddr: addr}); // 화주주소로 검색한 주문-구간 총 갯수 -> 화주가 주문한 주문갯수
             data.datatype = curtype; // 요청타입: 계정의 물류트랜젝션?, 토큰트랜젝션?
             if(curtype == 'logistics') {
                 let start = (curpage-1) * process.env.MAXELMT_PERPAGE;
@@ -337,7 +297,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                     logistics.push(elmt);
                 }
                 data.logistics = logistics;
-            } else { // type == 'tokens'
+            } else if(curtype == 'tokens') {
                 let start = (curpage-1) * process.env.MAXELMT_PERPAGE;
                 if(data.tokensCnt < start) {
                     throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${data.tokensCnt}]`);
@@ -357,6 +317,24 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                     tokens.push(elmt);
                 }
                 data.tokens = tokens;
+            } else { // type == 'orders'
+                let start = (curpage-1) * process.env.MAXELMT_PERPAGE;
+                if(data.ordersCnt < start) {
+                    throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${data.ordersCnt}]`);
+                }
+                let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+                let end = (data.ordersCnt >= start + pageUnit)? (pageUnit) : (data.ordersCnt);
+                let lists = await OrderTrack.find({companyAddr: addr}).sort('-blockNumber').lean(true).limit(end);
+                let orders = new Array(); // 주문 정보를 담을 배열
+                for(let idx = start; idx < end; idx++) {
+                    let elmt = new Object();
+                    elmt.orderAddr = lists[idx].orderAddr; // 주문 컨트랙트 주소
+                    elmt.orderId = lists[idx].orderId; // 주문 번호
+                    elmt.incentives = await libOrder.totalIncentive(lists[idx].orderAddr); // 총 인센티브
+                    elmt.status = await getOrderStatus(lists[idx].orderAddr, lists[idx].transportId); // 배송 상태
+                    orders.push(elmt);
+                }
+                data.orders = orders;
             }
             let resp = new Object(); // 결과값을 담을 오브젝트
             resp.accountType = 'eoa';
@@ -747,6 +725,32 @@ let getTransactionInfo = async function(txhash) {
 }
 
 /**
+ * @notice Overview 정보를 획득한다.
+ * @dev Overview 정보:
+ * @dev - 주문 수량(총합)
+ * @dev - 주문 수량(일일)
+ * @dev - 물류Tx 개수(총합)
+ * @dev - 물류Tx 개수(일일)
+ * @return Overview 정보
+ * @author jhhong
+ */
+let getOverviews = async function() {
+    try {
+        let limittm = parseInt(new Date().getTime() / 1000) - 86400; // 하루 전 시각 (epoch time)
+        let resp = new Object(); // 결과값을 담을 오브젝트
+        resp.orderPerDay = await TxLogistics.countDocuments({$and:[{txtype: "SUBMIT"}, {status: "Success"}, {timestamp: {$gt: limittm}}]});
+        resp.orderTotal  = await TxLogistics.countDocuments({$and:[{txtype: "SUBMIT"}, {status: "Success"}]});
+        resp.txPerDay    = await TxLogistics.countDocuments({timestamp: {$gt: limittm}});
+        resp.txTotal     = await TxLogistics.countDocuments();
+        return JSON.stringify(resp);
+    } catch(error) {
+        let action = `Action: getOverviews`;
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
+        return 'none';
+    }
+}
+
+/**
  * @notice EXPLORER REQUEST 처리 routing 수행 함수
  * @param {Object} app     Express Object
  * @param {String} service Express Object
@@ -764,6 +768,10 @@ module.exports = function(app, service, token) {
     });
     app.get('/transaction/:txhash', async function(req, res) {
         let ret = await getTransactionInfo(req.params.txhash);
+        res.end(ret);
+    });
+    app.get('/overviews', async function(req, res) {
+        let ret = await getOverviews();
         res.end(ret);
     });
 }
