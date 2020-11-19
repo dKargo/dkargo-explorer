@@ -164,7 +164,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
             data.shipper =(await libOrder.tracking(addr, 0))[1]; // 화주 주소
             data.totalIncentives = await libOrder.totalIncentive(addr); // 총 인센티브 합
             data.url = await libOrder.url(addr); // 주문 상세 URL
-            data.currentStep = parseInt(await libOrder.currentStep(addr)) + 1; // 주문 현재 배송구간 인덱스 (0부터 시작 -> +1)
+            data.currentStep = parseInt(await libOrder.currentStep(addr)); // 주문 현재 배송구간 인덱스 (0부터 시작)
             data.trackingCount = await libOrder.trackingCount(addr); // 주문 총 배송구간 갯수
             let tracks = new Array(); // 주문의 각 배송정보를 담을 배열
             for(let idx = 0; idx < data.trackingCount; idx++) {
@@ -178,6 +178,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 }
                 elmt.incentives = trackinfo[3]; // 배송 인센티브
                 elmt.status = await getOrderStatus(data.orderAddr, idx); // 배송 상태
+                elmt.txhash = (await OrderTrack.findOne({$and: [{orderAddr: addr}, {code: elmt.code}]})).txhash;
                 tracks.push(elmt);
             }
             data.tracking = tracks;
@@ -246,7 +247,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 }
                 let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
                 let end = (data.ordersCnt >= pageUnit)? (pageUnit) : (data.ordersCnt);
-                let lists = await OrderTrack.find({companyAddr: addr}).sort('-blockNumber').lean(true).limit(end);
+                let lists = await OrderTrack.find({companyAddr: addr}).sort({blockNumber: -1, orderId: -1}).lean(true).limit(end);
                 let orders = new Array(); // 물류사 담당 주문-구간을 담을 배열
                 for(let idx = start; idx < end; idx++) {
                     let elmt = new Object();
@@ -255,6 +256,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                     elmt.incentives = lists[idx].incentives; // 인센티브
                     elmt.code = lists[idx].code; // 배송 코드
                     elmt.status = await getOrderStatus(lists[idx].orderAddr, lists[idx].transportId); // 배송 상태
+                    elmt.txhash = (await OrderTrack.findOne({$and: [{orderAddr: elmt.orderAddr}, {code: elmt.code}]})).txhash;
                     orders.push(elmt);
                 }
                 data.orders = orders;
@@ -324,7 +326,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 }
                 let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
                 let end = (data.ordersCnt >= start + pageUnit)? (pageUnit) : (data.ordersCnt);
-                let lists = await OrderTrack.find({companyAddr: addr}).sort('-blockNumber').lean(true).limit(end);
+                let lists = await OrderTrack.find({companyAddr: addr}).sort({blockNumber: -1, orderId: -1}).lean(true).limit(end);
                 let orders = new Array(); // 주문 정보를 담을 배열
                 for(let idx = start; idx < end; idx++) {
                     let elmt = new Object();
@@ -368,7 +370,7 @@ let getOrderInfo = async function(orderid, service) {
         resp.shipper =(await libOrder.tracking(addr, 0))[1]; // 화주 주소
         resp.totalIncentives = await libOrder.totalIncentive(addr); // 총 인센티브 합
         resp.url = await libOrder.url(addr); // 주문 상세 URL
-        resp.currentStep = parseInt(await libOrder.currentStep(addr)) + 1; // 주문 현재 배송구간 인덱스 (0부터 시작 -> +1)
+        resp.currentStep = parseInt(await libOrder.currentStep(addr)); // 주문 현재 배송구간 인덱스 (0부터 시작)
         resp.trackingCount = await libOrder.trackingCount(addr); // 주문 총 배송구간 갯수
         let tracks = new Array(); // 주문의 각 배송정보를 담을 배열
         for(let idx = 0; idx < resp.trackingCount; idx++) {
@@ -382,6 +384,7 @@ let getOrderInfo = async function(orderid, service) {
             }
             elmt.incentives = trackinfo[3]; // 배송 인센티브
             elmt.status = await getOrderStatus(resp.orderAddr, idx); // 배송 상태
+            elmt.txhash = (await OrderTrack.findOne({$and: [{orderAddr: addr}, {code: elmt.code}]})).txhash;
             tracks.push(elmt);
         }
         resp.tracking = tracks;
@@ -731,6 +734,8 @@ let getTransactionInfo = async function(txhash) {
  * @dev - 주문 수량(일일)
  * @dev - 물류Tx 개수(총합)
  * @dev - 물류Tx 개수(일일)
+ * @dev - 주문 리스트 (order address, order id, status)
+ * @dev - Tx 리스트 (tx hash, block, tx type)
  * @return Overview 정보
  * @author jhhong
  */
@@ -738,13 +743,150 @@ let getOverviews = async function() {
     try {
         let limittm = parseInt(new Date().getTime() / 1000) - 86400; // 하루 전 시각 (epoch time)
         let resp = new Object(); // 결과값을 담을 오브젝트
-        resp.orderPerDay = await TxLogistics.countDocuments({$and:[{txtype: "SUBMIT"}, {status: "Success"}, {timestamp: {$gt: limittm}}]});
-        resp.orderTotal  = await TxLogistics.countDocuments({$and:[{txtype: "SUBMIT"}, {status: "Success"}]});
-        resp.txPerDay    = await TxLogistics.countDocuments({timestamp: {$gt: limittm}});
-        resp.txTotal     = await TxLogistics.countDocuments();
+        resp.dailyOrderCnt = await TxLogistics.countDocuments({$and:[{txtype: "SUBMIT"}, {status: "Success"}, {timestamp: {$gt: limittm}}]});
+        resp.totalOrderCnt = await TxLogistics.countDocuments({$and:[{txtype: "SUBMIT"}, {status: "Success"}]});
+        resp.dailyTxCnt    = await TxLogistics.countDocuments({timestamp: {$gt: limittm}});
+        resp.totalTxCnt    = await TxLogistics.countDocuments();
+        let orderlists = await OrderTrack.find({code: '10'}).sort({blockNumber: -1, orderId: -1}).lean(true).limit(10);
+        let orders = new Array(); // 물류사 담당 주문-구간을 담을 배열
+        for(let idx = 0; idx < orderlists.length; idx++) {
+            let elmt = new Object();
+            elmt.orderAddr = orderlists[idx].orderAddr; // 주문 컨트랙트 주소
+            elmt.orderId = orderlists[idx].orderId; // 주문 번호
+            elmt.status = await getOrderStatus(orderlists[idx].orderAddr, orderlists[idx].transportId); // 배송 상태
+            orders.push(elmt);
+        }
+        resp.orders = orders;
+        resp.orderListCnt = orderlists.length;
+        let txnslists = await TxLogistics.find().sort('-blockNumber').lean(true).limit(10);
+        let txns = new Array(); // TX 요약정보를 담을 배열
+        for(let idx = 0; idx < txnslists.length; idx++) {
+            let elmt = new Object();
+            elmt.txhash = txnslists[idx].hash; // 트랜젝션 해시
+            elmt.blockNumber = txnslists[idx].blockNumber; // 블록넘버
+            elmt.txtype = await getTxType(txnslists[idx].txtype); // 트랜젝션 타입
+            txns.push(elmt);
+        }
+        resp.txns = txns;
+        resp.txListCnt = txnslists.length;
         return JSON.stringify(resp);
     } catch(error) {
         let action = `Action: getOverviews`;
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
+        return 'none';
+    }
+}
+
+/**
+ * @notice 주문 리스트 정보를 획득한다.
+ * @param {Number} page 페이지 인덱스 (page * 25 == 시작 인덱스)
+ * @param {String} service 서비스 컨트랙트 주소
+ * @return 계정 정보 (json), 정보가 없거나 오류발생 시 'none'
+ * @author jhhong
+ */
+let getOrderlist = async function(page, service) {
+    try {
+        let curpage = (page === undefined)? (1) : (page);
+        if (curpage > process.env.MAXPAGES || curpage == 0) { // 체크: page index
+            throw new Error(`Out Of Scope Page! page: [${curpage}]`);
+        }
+        let ordercnt = parseInt(await libService.orderCount(service));
+        let start = (curpage-1) * process.env.MAXELMT_PERPAGE;
+        if (ordercnt < start) {
+            throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${ordercnt}]`);
+        }
+
+        let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+        let end = (ordercnt >= pageUnit)? (pageUnit) : (ordercnt);
+        let lists = await OrderTrack.find({code: '10'}).sort({blockNumber: -1, orderId: -1}).lean(true).limit(end);
+        let orders = new Array(); // 물류사 담당 주문-구간을 담을 배열
+        for(let idx = start; idx < end; idx++) {
+            let elmt = new Object();
+            elmt.orderAddr = lists[idx].orderAddr; // 주문 컨트랙트 주소
+            elmt.orderId = lists[idx].orderId; // 주문 번호
+            console.log(`orderid:[${lists[idx].orderId}], value: ${parseInt(lists[idx].orderId)}, block:[${lists[idx].blockNumber}]`);
+            elmt.incentives = lists[idx].incentives; // 인센티브
+            elmt.status = await getOrderStatus(lists[idx].orderAddr, lists[idx].transportId); // 배송 상태
+            orders.push(elmt);
+        }
+        let resp = new Object(); // 결과값을 담을 오브젝트
+        resp.count = ordercnt;
+        resp.orders = orders;
+        return JSON.stringify(resp);
+    } catch(error) {
+        let action = `Action: getOrderlist`;
+        Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
+        return 'none';
+    }
+}
+
+/**
+ * @notice 트랜젝션 리스트 정보를 획득한다.
+ * @param {Number} page    페이지 인덱스 (page * 25 == 시작 인덱스)
+ * @param {String} type    도시할 정보 타입 (logistics / token)
+ * @param {String} service 서비스 컨트랙트 주소
+ * @param {String} token   토큰 컨트랙트 주소
+ * @return 계정 정보 (json), 정보가 없거나 오류발생 시 'none'
+ * @author jhhong
+ */
+let getTxlist = async function(page, type, service, token) {
+    try {
+        let curpage = (page === undefined)? (1) : (page);
+        let curtype = (type === undefined)? ('logistics') : (type);
+        if (curtype != 'logistics' && curtype != 'tokens') { // 체크: type
+            throw new Error(`Invalid Type! type: [${curtype}]`);
+        }
+        if (curpage > process.env.MAXPAGES || curpage == 0) { // 체크: page index
+            throw new Error(`Out Of Scope Page! page: [${curpage}]`);
+        }
+        let resp = new Object(); // 결과값을 담을 오브젝트
+        resp.logisticsCnt = await TxLogistics.countDocuments(); // Logistics TX 총갯수
+        resp.tokensCnt = await TxToken.countDocuments(); // Tokens TX 총갯수
+        resp.datatype = curtype; // 요청타입: 계정의 물류트랜젝션?, 토큰트랜젝션?
+        if(curtype == 'logistics') {
+            let start = (curpage-1) * process.env.MAXELMT_PERPAGE;
+            if(resp.logisticsCnt < start) {
+                throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${resp.logisticsCnt}]`);
+            }
+            let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+            let end = (resp.logisticsCnt >= pageUnit)? (pageUnit) : (resp.logisticsCnt);
+            let lists = await TxLogistics.find().sort('-blockNumber').lean(true).limit(end);
+            let logistics = new Array(); // TX 요약정보를 담을 배열
+            for(let idx = start; idx < end; idx++) {
+                let elmt = new Object();
+                elmt.txhash = lists[idx].hash; // 트랜젝션 해시
+                elmt.status = lists[idx].status; // 트랜젝션 상태 (success / fail / pending)
+                elmt.blockNumber = lists[idx].blockNumber; // 블록넘버
+                elmt.time = lists[idx].timestamp; // 트랜젝션 생성시각
+                elmt.txtype = await getTxType(lists[idx].txtype); // 트랜젝션 타입
+                logistics.push(elmt);
+            }
+            resp.logistics = logistics;
+        } else {
+            let start = (curpage-1) * process.env.MAXELMT_PERPAGE;
+            if(resp.tokensCnt < start) {
+                throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${resp.tokensCnt}]`);
+            }
+            let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+            let end = (resp.tokensCnt >= start + pageUnit)? (pageUnit) : (resp.tokensCnt);
+            let lists = await TxToken.find().sort('-blockNumber').lean(true).limit(end);
+            let tokens = new Array(); // TX 요약정보를 담을 배열
+            for(let idx = start; idx < end; idx++) {
+                let elmt = new Object();
+                elmt.txhash = lists[idx].hash; // 트랜젝션 해시
+                elmt.time = lists[idx].timestamp; // 트랜젝션 생성시각
+                elmt.txtype = await getTxType(lists[idx].txtype); // 트랜젝션 타입
+                elmt.from = (lists[idx].txtype == 'DEPLOY')? (lists[idx].from) : (lists[idx].origin); // 주문 컨트랙트 주소
+                elmt.to = lists[idx].dest; // 물류사 컨트랙트 주소
+                elmt.amount = lists[idx].amount; // 물류사 컨트랙트 주소
+                tokens.push(elmt);
+            }
+            resp.tokens = tokens;
+        }
+        return JSON.stringify(resp);
+
+    } catch(error) {
+        let action = `Action: getTxlist`;
         Log('ERROR', `exception occured!:\n${action}\n${RED(error.stack)}`);
         return 'none';
     }
@@ -772,6 +914,14 @@ module.exports = function(app, service, token) {
     });
     app.get('/overviews', async function(req, res) {
         let ret = await getOverviews();
+        res.end(ret);
+    });
+    app.get('/orderlist', async function(req, res) {
+        let ret = await getOrderlist(req.query.p, service);
+        res.end(ret);
+    });
+    app.get('/txlist', async function(req, res) {
+        let ret = await getTxlist(req.query.p, req.query.type, service, token);
         res.end(ret);
     });
 }

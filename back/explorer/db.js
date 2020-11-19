@@ -79,6 +79,7 @@ const ExpOrderTrack = new mongoose.Schema({
   'orderId':      String, // 주문번호 (물류정보)
   'transportId':  String, // 운송번호 (물류정보)
   'blockNumber':  Number, // 블록넘버, 정보의 투명성 보장 (Ref. getStartBlock)
+  'txhash':       String, // 배송코드를 이행한 트랜젝션 해시값
 }, {collection: 'ExpOrderTrack'});
 /**
  * @notice ExpEvtLogistics Schema, 트랜젝션에 포함된 이벤트 로그 정보

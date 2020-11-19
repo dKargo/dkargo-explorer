@@ -335,6 +335,7 @@ let procTxCompany = async function(receipt, inputs, eventLogs, item) {
                 item.transportId = parseInt(`0x${inputs.substring(74, 138)}`).toString(10); // inputs에서 운송번호 추출
                 item.code = parseInt(`0x${inputs.substring(138, 202)}`).toString(10); // inputs에서 배송코드 추출
                 item.txtype = 'ORDER-UPDATE';
+                await OrderTrack.collection.updateOne({$and: [{orderAddr: item.orderAddr}, {code: item.code}]}, {$set: {txhash: item.hash}});
                 await TxLogistics.collection.insertOne(item);
                 break;
             }
@@ -453,6 +454,8 @@ let procTxOrder = async function(receipt, inputs, eventLogs, item) {
                     track.transportId = idx; // 운송번호
                     if(idx > 0) { // idx=0은 화주, 물류사가 아니므로 물류사 이름을 기록하지 않음
                         track.companyName = await libCompany.name(trackinfo[1]); // 물류사 이름
+                    } else if(idx == 0) {
+                        track.txhash = item.hash; // 배송코드 10(주문생성)에 해당하는 txhash 기록
                     }
                     await OrderTrack.collection.insertOne(track); // 구간정보 DB에 저장
                 }
@@ -546,8 +549,8 @@ let syncPastBlocks = async function(startblock, table) {
             } else {
                 await Block.collection.updateOne({nettype: 'logistics'}, {$set: {blockNumber: data.number}});
             }
-            let latest = await Block.findOne({nettype: 'logistics'});
-            //Log('DEBUG', `New Block Detected: BLOCK:[${BLUE(latest.blockNumber)}]`);
+            /*let latest = await Block.findOne({nettype: 'logistics'});
+            Log('DEBUG', `New Block Detected: BLOCK:[${BLUE(latest.blockNumber)}]`);*/
             const timestamp = data.timestamp;
             for(idx in data.transactions) {
                 await parseDkargoTxns(data.transactions[idx], table, timestamp);
