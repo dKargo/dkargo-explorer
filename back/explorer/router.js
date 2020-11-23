@@ -174,7 +174,7 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 elmt.status = trackinfo[2]; // 배송 코드
                 elmt.type = await getAddressType(elmt.companyAddress); // 주소 타입: ('eoa' / 'company')
                 if(elmt.type == 'company') {
-                    elmt.companyName = await libCompany.name(elmt.addr); // 물류사 이름
+                    elmt.companyName = await libCompany.name(elmt.companyAddress); // 물류사 이름
                 }
                 elmt.incentiveAmounts = trackinfo[3]; // 배송 인센티브
                 elmt.completion = await getOrderStatus(data.orderAddress, idx); // 배송 상태
@@ -378,7 +378,7 @@ let getOrderInfo = async function(orderid, service) {
             elmt.status = trackinfo[2]; // 배송 코드
             elmt.type = await getAddressType(elmt.companyAddress); // 주소 타입: ('eoa' / 'company')
             if(elmt.type == 'company') {
-                elmt.companyName = await libCompany.name(elmt.addr); // 물류사 이름
+                elmt.companyName = await libCompany.name(elmt.companyAddress); // 물류사 이름
             }
             elmt.incentiveAmounts = trackinfo[3]; // 배송 인센티브
             elmt.completion = await getOrderStatus(resp.orderAddress, idx); // 배송 상태
