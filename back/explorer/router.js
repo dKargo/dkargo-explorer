@@ -200,14 +200,16 @@ let getAccountInfo = async function(addr, page, type, service, token) {
         } else if(addrtype == 'company') { // Addr이 물류사 컨트랙트 주소인 경우
             let curpage = (page === undefined)? (1) : (page);
             let curtype = (type === undefined)? ('txs') : (type);
-            if(curtype != 'txs' && curtype != 'orders') { // 체크: type
+            if (curtype != 'txs' && curtype != 'orders') { // 체크: type
                 throw new Error(`Invalid Type! type: [${curtype}]`);
             }
-            if(curpage > process.env.MAXPAGES || curpage == 0) { // 체크: page index
+            let maxpage = parseInt(process.env.MAXPAGES);
+            let maxelmt = parseInt(process.env.MAXELMT_PERPAGE);
+            if (curpage > maxpage || curpage == 0) { // 체크: page index
                 throw new Error(`Out Of Scope Page! page: [${curpage}]`);
             }
             let servcmp = await libCompany.service(addr); // 물류사에 바인딩된 서비스 컨트랙트 주소 획득하여 param 체크
-            if(servcmp != service) {
+            if (servcmp != service) {
                 throw new Error(`Not Matched Service! param=[${service}] / embedded=[${servcmp}]`);
             }
             let data = new Object();
@@ -221,11 +223,11 @@ let getAccountInfo = async function(addr, page, type, service, token) {
             data.totalOrderCount = await OrderTrack.countDocuments({companyAddr: addr}); // 물류사가 담당하는 주문-구간 총 갯수
             data.datatype = type; // 요청타입: txs / orders
             if(curtype == 'txs') {
-                let start = (curpage-1) * process.env.MAXELMT_PERPAGE;
+                let start = (curpage-1) * maxelmt;
                 if(data.totalTxCount < start) {
                     throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${data.totalTxCount}]`);
                 }
-                let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+                let pageUnit = start + maxelmt;
                 let end = (data.totalTxCount >= pageUnit)? (pageUnit) : (data.totalTxCount);
                 let lists = await TxLogistics.find({companyAddr: addr}).sort('-blockNumber').lean(true).limit(end);
                 let txs = new Array(); // TX 요약정보를 담을 배열
@@ -240,11 +242,11 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 }
                 data.txs = txs;
             } else { // type == 'orders'
-                let start = (curpage-1) * process.env.MAXELMT_PERPAGE;
+                let start = (curpage-1) * maxelmt;
                 if(data.totalOrderCount < start) {
                     throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${data.totalOrderCount}]`);
                 }
-                let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+                let pageUnit = start + maxelmt;
                 let end = (data.totalOrderCount >= pageUnit)? (pageUnit) : (data.totalOrderCount);
                 let lists = await OrderTrack.find({companyAddr: addr}).sort({blockNumber: -1, orderId: -1}).lean(true).limit(end);
                 let orders = new Array(); // 물류사 담당 주문-구간을 담을 배열
@@ -270,7 +272,9 @@ let getAccountInfo = async function(addr, page, type, service, token) {
             if (curtype != 'logistics' && curtype != 'tokens' && curtype != 'orders') { // 체크: type
                 throw new Error(`Invalid Type! type: [${curtype}]`);
             }
-            if (curpage > process.env.MAXPAGES || curpage == 0) { // 체크: page index
+            let maxpage = parseInt(process.env.MAXPAGES);
+            let maxelmt = parseInt(process.env.MAXELMT_PERPAGE);
+            if (curpage > maxpage || curpage == 0) { // 체크: page index
                 throw new Error(`Out Of Scope Page! page: [${curpage}]`);
             }
             let data = new Object();
@@ -280,11 +284,11 @@ let getAccountInfo = async function(addr, page, type, service, token) {
             data.totalOrderCount = await OrderTrack.countDocuments({companyAddr: addr}); // 화주주소로 검색한 주문-구간 총 갯수 -> 화주가 주문한 주문갯수
             data.datatype = curtype; // 요청타입: 계정의 물류트랜젝션?, 토큰트랜젝션?
             if(curtype == 'logistics') {
-                let start = (curpage-1) * process.env.MAXELMT_PERPAGE;
+                let start = (curpage-1) * maxelmt;
                 if(data.totalLogisticsTxCount < start) {
                     throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${data.totalLogisticsTxCount}]`);
                 }
-                let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+                let pageUnit = start + maxelmt;
                 let end = (data.totalLogisticsTxCount >= pageUnit)? (pageUnit) : (data.totalLogisticsTxCount);
                 let lists = await TxLogistics.find({$or: [{from: addr}, {recipient: addr}]}).sort('-blockNumber').lean(true).limit(end);
                 let logistics = new Array(); // TX 요약정보를 담을 배열
@@ -299,11 +303,11 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 }
                 data.logistics = logistics;
             } else if(curtype == 'tokens') {
-                let start = (curpage-1) * process.env.MAXELMT_PERPAGE;
+                let start = (curpage-1) * maxelmt;
                 if(data.totalDKATransferTxCount < start) {
                     throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${data.totalDKATransferTxCount}]`);
                 }
-                let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+                let pageUnit = start + maxelmt;
                 let end = (data.totalDKATransferTxCount >= start + pageUnit)? (pageUnit) : (data.totalDKATransferTxCount);
                 let lists = await TxToken.find({$or: [{from: addr}, {origin: addr}, {dest: addr}]}).sort('-blockNumber').lean(true).limit(end);
                 let tokens = new Array(); // TX 요약정보를 담을 배열
@@ -319,11 +323,11 @@ let getAccountInfo = async function(addr, page, type, service, token) {
                 }
                 data.tokens = tokens;
             } else { // type == 'orders'
-                let start = (curpage-1) * process.env.MAXELMT_PERPAGE;
+                let start = (curpage-1) * maxelmt;
                 if(data.totalOrderCount < start) {
                     throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${data.totalOrderCount}]`);
                 }
-                let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+                let pageUnit = start + maxelmt;
                 let end = (data.totalOrderCount >= start + pageUnit)? (pageUnit) : (data.totalOrderCount);
                 let lists = await OrderTrack.find({companyAddr: addr}).sort({blockNumber: -1, orderId: -1}).lean(true).limit(end);
                 let orders = new Array(); // 주문 정보를 담을 배열
@@ -831,7 +835,9 @@ let getTxlist = async function(page, type) {
         if (curtype != 'logistics' && curtype != 'tokens') { // 체크: type
             throw new Error(`Invalid Type! type: [${curtype}]`);
         }
-        if (curpage > process.env.MAXPAGES || curpage == 0) { // 체크: page index
+        let maxpage = parseInt(process.env.MAXPAGES);
+        let maxelmt = parseInt(process.env.MAXELMT_PERPAGE);
+        if (curpage > maxpage || curpage == 0) { // 체크: page index
             throw new Error(`Out Of Scope Page! page: [${curpage}]`);
         }
         let resp = new Object(); // 결과값을 담을 오브젝트
@@ -839,11 +845,11 @@ let getTxlist = async function(page, type) {
         resp.totalDKATransferTxCount = await TxToken.countDocuments(); // Tokens TX 총갯수
         resp.datatype = curtype; // 요청타입: 계정의 물류트랜젝션?, 토큰트랜젝션?
         if(curtype == 'logistics') {
-            let start = (curpage-1) * process.env.MAXELMT_PERPAGE;
+            let start = (curpage-1) * maxelmt;
             if(resp.totalLogisticsTxCount < start) {
                 throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${resp.totalLogisticsTxCount}]`);
             }
-            let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+            let pageUnit = start + maxelmt;
             let end = (resp.totalLogisticsTxCount >= pageUnit)? (pageUnit) : (resp.totalLogisticsTxCount);
             let lists = await TxLogistics.find().sort('-blockNumber').lean(true).limit(end);
             let logistics = new Array(); // TX 요약정보를 담을 배열
@@ -858,11 +864,11 @@ let getTxlist = async function(page, type) {
             }
             resp.logistics = logistics;
         } else {
-            let start = (curpage-1) * process.env.MAXELMT_PERPAGE;
+            let start = (curpage-1) * maxelmt;
             if(resp.totalDKATransferTxCount < start) {
                 throw new Error(`Invalid Page Index! Start Index=[${start}], Total count=[${resp.totalDKATransferTxCount}]`);
             }
-            let pageUnit = start + parseInt(process.env.MAXELMT_PERPAGE);
+            let pageUnit = start + maxelmt;
             let end = (resp.totalDKATransferTxCount >= start + pageUnit)? (pageUnit) : (resp.totalDKATransferTxCount);
             let lists = await TxToken.find().sort('-blockNumber').lean(true).limit(end);
             let tokens = new Array(); // TX 요약정보를 담을 배열
